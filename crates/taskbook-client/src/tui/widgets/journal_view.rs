@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 use crate::tui::app::App;
-use taskbook_common::StorageItem;
+use taskbook_common::{board, StorageItem};
 
 use super::render_scrollable_list;
 
@@ -163,6 +163,34 @@ pub fn render_journal_view(frame: &mut Frame, app: &App, area: Rect) {
                 }
             }
 
+            // Render tags and boards below the item
+            let tags = item.tags();
+            let boards: Vec<&String> = item
+                .boards()
+                .iter()
+                .filter(|b| !board::board_eq(b, board::DEFAULT_BOARD))
+                .collect();
+
+            if !tags.is_empty() || !boards.is_empty() {
+                let mut tag_spans: Vec<Span> = vec![Span::raw("         ")];
+                for (i, tag) in tags.iter().enumerate() {
+                    if i > 0 {
+                        tag_spans.push(Span::raw(" "));
+                    }
+                    tag_spans.push(Span::styled(tag.to_string(), app.theme.tag));
+                }
+                if !tags.is_empty() && !boards.is_empty() {
+                    tag_spans.push(Span::raw(" "));
+                }
+                for (i, b) in boards.iter().enumerate() {
+                    if i > 0 {
+                        tag_spans.push(Span::raw(" "));
+                    }
+                    tag_spans.push(Span::styled(b.to_string(), app.theme.board_tag));
+                }
+                lines.push(Line::from(tag_spans));
+                item_line_map.push(Some(item.id()));
+            }
         }
     }
 

@@ -19,6 +19,8 @@ pub struct TuiTheme {
     pub item_id: Style,
     pub completed_text: Style,
     pub board_name: Style,
+    pub tag: Style,
+    pub board_tag: Style,
 }
 
 impl From<&ThemeColors> for TuiTheme {
@@ -68,6 +70,12 @@ impl From<&ThemeColors> for TuiTheme {
             board_name: Style::default()
                 .fg(Color::Rgb(colors.info.r, colors.info.g, colors.info.b))
                 .add_modifier(Modifier::BOLD),
+            // Tags - muted green
+            tag: Style::default()
+                .fg(Color::Rgb(120, 190, 120))
+                .add_modifier(Modifier::BOLD),
+            // Board tags - soft purple
+            board_tag: Style::default().fg(Color::Rgb(170, 130, 200)),
         }
     }
 }

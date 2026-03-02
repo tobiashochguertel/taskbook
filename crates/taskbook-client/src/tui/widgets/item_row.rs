@@ -89,22 +89,25 @@ pub fn render_item_line(
             if i > 0 {
                 spans.push(Span::raw(" "));
             }
-            spans.push(Span::styled(format!("+{}", tag), app.theme.info));
+            spans.push(Span::styled(tag.to_string(), app.theme.tag));
         }
     }
 
     // Boards (for timeline view)
     if options.show_boards {
-        let boards: Vec<String> = item
+        let boards: Vec<&String> = item
             .boards()
             .iter()
             .filter(|b| !board::board_eq(b, board::DEFAULT_BOARD))
-            .map(|b| board::display_name(b))
             .collect();
-        let boards_str = boards.join(" ");
-        if !boards_str.is_empty() {
+        if !boards.is_empty() {
             spans.push(Span::raw(" "));
-            spans.push(Span::styled(boards_str, app.theme.muted));
+            for (i, b) in boards.iter().enumerate() {
+                if i > 0 {
+                    spans.push(Span::raw(" "));
+                }
+                spans.push(Span::styled(b.to_string(), app.theme.board_tag));
+            }
         }
     }
 
