@@ -359,11 +359,17 @@ impl App {
             }
             ViewMode::Journal => {
                 // Order by date (newest first like timeline), then by ID
-                // Journal always shows completed tasks - only apply search filter
                 let mut items: Vec<_> = self
                     .items
                     .values()
                     .filter(|item| {
+                        if self.filter.hide_completed {
+                            if let Some(task) = item.as_task() {
+                                if task.is_complete {
+                                    return false;
+                                }
+                            }
+                        }
                         if let Some(ref term) = self.filter.search_term {
                             let term_lower = term.to_lowercase();
                             let in_desc = item.description().to_lowercase().contains(&term_lower);
