@@ -147,29 +147,23 @@ pub fn render_journal_view(frame: &mut Frame, app: &App, area: Rect) {
 
             title_spans.push(Span::styled(item.description().to_string(), desc_style));
 
-            lines.push(Line::from(title_spans));
-            item_line_map.push(Some(item.id()));
-
-            // Render body if present (for notes)
+            // Inline note body preview (first line, truncated)
             if let Some(note) = item.as_note() {
                 if let Some(body) = note.body() {
-                    for line in body.lines() {
-                        let body_style = if is_selected {
-                            app.theme.selected
+                    if let Some(first_line) = body.lines().next() {
+                        let preview = if first_line.len() > 50 {
+                            format!("  {}…", &first_line[..50])
+                        } else if body.lines().count() > 1 {
+                            format!("  {}…", first_line)
                         } else {
-                            app.theme.muted
+                            format!("  {}", first_line)
                         };
-                        // Indent body
-                        lines.push(Line::from(vec![
-                            Span::raw("        "),
-                            Span::styled(line.to_string(), body_style),
-                        ]));
-                        item_line_map.push(Some(item.id()));
+                        title_spans.push(Span::styled(preview, app.theme.muted));
                     }
                 }
             }
 
-            // Render tags and boards below the item
+            // Inline tags and boards
             let tags = item.tags();
             let boards: Vec<&String> = item
                 .boards()
@@ -177,26 +171,17 @@ pub fn render_journal_view(frame: &mut Frame, app: &App, area: Rect) {
                 .filter(|b| !board::board_eq(b, board::DEFAULT_BOARD))
                 .collect();
 
-            if !tags.is_empty() || !boards.is_empty() {
-                let mut tag_spans: Vec<Span> = vec![Span::raw("         ")];
-                for (i, tag) in tags.iter().enumerate() {
-                    if i > 0 {
-                        tag_spans.push(Span::raw(" "));
-                    }
-                    tag_spans.push(Span::styled(tag.to_string(), app.theme.tag));
-                }
-                if !tags.is_empty() && !boards.is_empty() {
-                    tag_spans.push(Span::raw(" "));
-                }
-                for (i, b) in boards.iter().enumerate() {
-                    if i > 0 {
-                        tag_spans.push(Span::raw(" "));
-                    }
-                    tag_spans.push(Span::styled(b.to_string(), app.theme.board_tag));
-                }
-                lines.push(Line::from(tag_spans));
-                item_line_map.push(Some(item.id()));
+            for tag in tags {
+                title_spans.push(Span::raw(" "));
+                title_spans.push(Span::styled(tag.to_string(), app.theme.tag));
             }
+            for b in &boards {
+                title_spans.push(Span::raw(" "));
+                title_spans.push(Span::styled(b.to_string(), app.theme.board_tag));
+            }
+
+            lines.push(Line::from(title_spans));
+            item_line_map.push(Some(item.id()));
         }
     }
 
