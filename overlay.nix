@@ -5,19 +5,19 @@ let
   assets = {
     x86_64-linux = {
       url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-linux-x86_64.tar.gz";
-      hash = "sha256-oB26PJoWq4cZn2D0rIfgi37V8pkbV0JHD93LkI7CAq8=";
+      hash = "sha256-L3EOab9LJhoq63JtXa0wdx3gPrzn0naOtPfycmHWInU=";
     };
     aarch64-linux = {
       url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-linux-aarch64.tar.gz";
-      hash = "sha256-io5FelbI49hnxe0lHrIYNdE+sfc3ngNER+FRnodUwNQ=";
+      hash = "sha256-yVMpMYE+73rb59osrVLosXY1mEHKkkevyj/cdvQ39UQ=";
     };
     x86_64-darwin = {
       url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-darwin-x86_64.tar.gz";
-      hash = "sha256-+sI35PqO8J35DOvSi1/cyPkQaNIBNwDY1Gmwgwyqoj8=";
+      hash = "sha256-DmWQ0zYx5z80tWcP09RO3Jsvx9U4ys/l/0vkAopwhhg=";
     };
     aarch64-darwin = {
       url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-darwin-aarch64.tar.gz";
-      hash = "sha256-idQXgJQZGofmPJ8uYvLBC/JUhfNVqz1FBWKSCj9VGis=";
+      hash = "sha256-mmuY9HLa0nIabTy0qpEWdHBkOVoJNj32nYmeqOtCDI8=";
     };
   };
 
