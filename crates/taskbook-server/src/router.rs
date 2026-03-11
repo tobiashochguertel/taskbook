@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use axum::http::HeaderValue;
+use axum::response::IntoResponse;
 use axum::routing::{delete, get, post, put};
-use axum::Router;
+use axum::{extract::State, Router};
+use metrics_exporter_prometheus::PrometheusHandle;
 use sqlx::PgPool;
 use tokio::sync::broadcast;
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -54,9 +56,15 @@ pub struct AppState {
     pub session_expiry_days: i64,
     pub auth_rate_limiter: RateLimiter,
     pub notifications: NotificationHub,
+    pub prometheus_handle: PrometheusHandle,
 }
 
-pub fn build(pool: PgPool, session_expiry_days: i64, cors_origins: &[String]) -> Router {
+pub fn build(
+    pool: PgPool,
+    session_expiry_days: i64,
+    cors_origins: &[String],
+    prometheus_handle: PrometheusHandle,
+) -> Router {
     // 10 auth requests per IP per 60 seconds
     let auth_rate_limiter = RateLimiter::new(10, 60);
 
@@ -65,11 +73,12 @@ pub fn build(pool: PgPool, session_expiry_days: i64, cors_origins: &[String]) ->
         session_expiry_days,
         auth_rate_limiter,
         notifications: NotificationHub::default(),
+        prometheus_handle,
     };
 
     let cors = build_cors_layer(cors_origins);
 
-    let router = Router::new()
+    Router::new()
         .route("/api/v1/health", get(health::health))
         .route("/api/v1/register", post(user::register))
         .route("/api/v1/login", post(user::login))
@@ -80,17 +89,23 @@ pub fn build(pool: PgPool, session_expiry_days: i64, cors_origins: &[String]) ->
         .route("/api/v1/items/archive", get(items::get_archive))
         .route("/api/v1/items/archive", put(items::put_archive))
         .route("/api/v1/events", get(events::events))
+        .route("/metrics", get(metrics_handler))
         // 10 MB body limit for item uploads
         .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024))
-        .layer(cors);
+        .layer(cors)
+        .layer(HttpMetricsLayer)
+        .with_state(state)
+}
 
-    let router = if std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").is_ok() {
-        router.layer(HttpMetricsLayer::new())
-    } else {
-        router
-    };
-
-    router.with_state(state)
+async fn metrics_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let body = state.prometheus_handle.render();
+    (
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; version=0.0.4; charset=utf-8",
+        )],
+        body,
+    )
 }
 
 fn build_cors_layer(origins: &[String]) -> CorsLayer {

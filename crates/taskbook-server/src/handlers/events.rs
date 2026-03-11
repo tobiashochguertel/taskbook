@@ -6,40 +6,30 @@ use std::time::Duration;
 use axum::extract::State;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use futures_util::stream::Stream;
-use opentelemetry::metrics::UpDownCounter;
-use opentelemetry::{global, KeyValue};
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
 use crate::middleware::AuthUser;
 use crate::router::{AppState, SyncEvent};
 
-/// Guard that decrements the SSE active-connections counter on drop.
-struct SseConnectionGuard {
-    counter: UpDownCounter<i64>,
-}
+/// Guard that decrements the SSE active-connections gauge on drop.
+struct SseConnectionGuard;
 
 impl SseConnectionGuard {
     fn new() -> Self {
-        let meter = global::meter("taskbook-server");
-        let counter = meter
-            .i64_up_down_counter("sse.active_connections")
-            .with_description("Number of active SSE connections")
-            .build();
-        counter.add(1, &[KeyValue::new("endpoint", "/api/v1/events")]);
-        Self { counter }
+        metrics::gauge!("sse_active_connections", "endpoint" => "/api/v1/events").increment(1.0);
+        Self
     }
 }
 
 impl Drop for SseConnectionGuard {
     fn drop(&mut self) {
-        self.counter
-            .add(-1, &[KeyValue::new("endpoint", "/api/v1/events")]);
+        metrics::gauge!("sse_active_connections", "endpoint" => "/api/v1/events").decrement(1.0);
     }
 }
 
 /// Wrapper stream that holds a [`SseConnectionGuard`]. When the client
-/// disconnects and the stream is dropped, the counter is automatically
+/// disconnects and the stream is dropped, the gauge is automatically
 /// decremented.
 struct TrackedStream<S> {
     inner: S,

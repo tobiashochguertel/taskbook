@@ -17,7 +17,7 @@ use crate::config::ServerConfig;
 
 #[tokio::main]
 async fn main() {
-    let _telemetry_guard = telemetry::init_telemetry();
+    let prometheus_handle = telemetry::init_telemetry();
 
     let config = match ServerConfig::load() {
         Ok(c) => c,
@@ -41,11 +41,14 @@ async fn main() {
         std::process::exit(1);
     }
 
-    if _telemetry_guard.is_some() {
-        telemetry::spawn_db_pool_metrics(pool.clone());
-    }
+    telemetry::spawn_db_pool_metrics(pool.clone());
 
-    let app = router::build(pool, config.session_expiry_days, &config.cors_origins);
+    let app = router::build(
+        pool,
+        config.session_expiry_days,
+        &config.cors_origins,
+        prometheus_handle,
+    );
     let addr = SocketAddr::from((config.host, config.port));
 
     tracing::info!("starting taskbook server on {}", addr);
