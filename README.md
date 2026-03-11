@@ -2,6 +2,8 @@
 
 A Rust port of [taskbook](https://github.com/klaussinani/taskbook) - tasks, boards & notes for the command-line habitat.
 
+![Board View](screenshots/taskbook.png)
+
 ## Features
 
 - Create and manage tasks and notes organized into boards
@@ -28,6 +30,38 @@ cargo install --path crates/taskbook-client
   environment.systemPackages = [ inputs.taskbook.packages.${system}.default ];
 }
 ```
+
+## Screenshots
+
+### Board View
+Organize tasks and notes into boards with priority levels and progress tracking.
+
+![Board View](screenshots/taskbook.png)
+
+### Timeline View
+View all items chronologically, grouped by date.
+
+![Timeline View](screenshots/timeline.png)
+
+### Journal View
+A detailed journal of all activity with timestamps.
+
+![Journal View](screenshots/journal.png)
+
+### Commands
+Access commands directly from the TUI with `/` or Tab.
+
+![Commands](screenshots/commands.png)
+
+### Help
+Full keyboard shortcut reference available with `?`.
+
+![Help](screenshots/help.png)
+
+### Archive View
+Browse and restore deleted items.
+
+![Archive View](screenshots/archive.png)
 
 ## Usage
 

@@ -1,0 +1,12 @@
+{
+  "taskbookDirectory": "./sample",
+  "displayCompleteTasks": true,
+  "displayProgressOverview": true,
+  "theme": "catppuccin-macchiato",
+  "sync": {
+    "enabled": false,
+    "serverUrl": "http://localhost:8080"
+  },
+  "sortMethod": "id",
+  "defaultView": "journal"
+}
