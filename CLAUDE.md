@@ -81,6 +81,8 @@ crates/
         ├── error.rs        # ServerError → HTTP response mapping
         ├── middleware.rs    # Auth middleware (Bearer token extraction)
         ├── rate_limit.rs   # Per-IP sliding window rate limiter
+        ├── telemetry.rs     # Tracing + Prometheus metrics recorder setup
+        ├── metrics_middleware.rs # HTTP request metrics (Tower layer)
         ├── handlers/
         │   ├── user.rs     # POST /register, POST /login, DELETE /logout, GET /me
         │   ├── items.rs    # GET/PUT /items, GET/PUT /items/archive
@@ -184,11 +186,12 @@ docker run -p 8080:8080 \
 
 ## API Endpoints
 
-All under `/api/v1/`:
+All under `/api/v1/` unless noted:
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | /health | No | Health check |
+| GET | /metrics | No | Prometheus metrics scrape endpoint |
 | POST | /register | No | Create account |
 | POST | /login | No | Get session token |
 | DELETE | /logout | Yes | Invalidate session |
@@ -226,6 +229,7 @@ All under `/api/v1/`:
 - `argon2` - Password hashing (Argon2id)
 - `tower-http` - HTTP middleware (CORS, tracing, body limits)
 - `tracing` / `tracing-subscriber` - Structured logging
+- `metrics` / `metrics-exporter-prometheus` - Prometheus metrics
 - `tokio-stream` / `futures-util` - SSE event streaming
 
 ## Testing Notes

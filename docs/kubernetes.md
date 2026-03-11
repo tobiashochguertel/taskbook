@@ -383,7 +383,7 @@ resources:
 
 ### Prometheus Metrics
 
-The server exposes health endpoints that can be scraped:
+The server exposes a `/metrics` endpoint with Prometheus metrics (request counts, latency histograms, connection pool gauges, etc.). Create a `ServiceMonitor` to scrape it:
 
 ```yaml
 # ServiceMonitor for Prometheus Operator
@@ -392,19 +392,23 @@ kind: ServiceMonitor
 metadata:
   name: taskbook-server
   namespace: taskbook
+  labels:
+    release: prometheus-operator  # Must match your Prometheus serviceMonitorSelector
 spec:
   selector:
     matchLabels:
       app: taskbook-server
   endpoints:
     - port: http
-      path: /api/v1/health
-      interval: 30s
+      path: /metrics
+      interval: 15s
 ```
+
+A pre-built Grafana dashboard is available — see the [Observability guide](observability.md) for details.
 
 ### Logging
 
-Logs are written to stdout in JSON format when `RUST_LOG` is set. They can be collected by:
+Logs are written to stdout and can be collected by:
 
 - Fluentd/Fluent Bit
 - Loki

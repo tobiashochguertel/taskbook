@@ -276,7 +276,7 @@ taskbook.example.com {
 
 ## Monitoring
 
-For full observability with OpenTelemetry (traces, metrics, and logs exported to Grafana Cloud or any OTLP-compatible backend), see the [Observability guide](observability.md).
+The server exposes a `/metrics` endpoint with Prometheus metrics (request counts, latency histograms, DB pool gauges). No configuration required — metrics are always available. For scraping setup and a pre-built Grafana dashboard, see the [Observability guide](observability.md).
 
 ### Health Check
 
