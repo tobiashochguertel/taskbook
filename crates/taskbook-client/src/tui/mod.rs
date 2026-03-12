@@ -94,6 +94,17 @@ impl Drop for TuiSuspendGuard {
     }
 }
 
+/// Restore the terminal to its normal state.
+fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) {
+    let _ = disable_raw_mode();
+    let _ = execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    );
+    let _ = terminal.show_cursor();
+}
+
 /// Run the TUI application
 pub fn run(taskbook_dir: Option<&Path>) -> Result<()> {
     // Setup terminal
@@ -104,21 +115,19 @@ pub fn run(taskbook_dir: Option<&Path>) -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).map_err(|e| TaskbookError::Tui(e.to_string()))?;
 
-    // Create app and run
-    let mut app = App::new(taskbook_dir)?;
+    // Create app — restore terminal on failure
+    let mut app = match App::new(taskbook_dir) {
+        Ok(app) => app,
+        Err(e) => {
+            restore_terminal(&mut terminal);
+            return Err(e);
+        }
+    };
+
     let res = run_app(&mut terminal, &mut app);
 
     // Restore terminal
-    disable_raw_mode().map_err(|e| TaskbookError::Tui(e.to_string()))?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )
-    .map_err(|e| TaskbookError::Tui(e.to_string()))?;
-    terminal
-        .show_cursor()
-        .map_err(|e| TaskbookError::Tui(e.to_string()))?;
+    restore_terminal(&mut terminal);
 
     res
 }

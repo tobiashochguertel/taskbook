@@ -191,6 +191,20 @@ pub fn status() -> Result<()> {
         Some(creds) => {
             println!("Credentials: {}", "saved".green());
             println!("Server URL:  {}", creds.server_url);
+
+            if config.sync.enabled {
+                let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+                match client.get_me() {
+                    Ok(me) => {
+                        println!("Session:     {}", "valid".green());
+                        println!("Logged in as: {} ({})", me.username, me.email);
+                    }
+                    Err(e) => {
+                        println!("Session:     {}", "invalid".red());
+                        println!("Error:       {}", e);
+                    }
+                }
+            }
         }
         None => {
             println!("Credentials: {}", "none".dimmed());

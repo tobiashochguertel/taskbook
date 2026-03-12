@@ -51,6 +51,12 @@ pub struct LoginResponse {
 }
 
 #[derive(Deserialize)]
+pub struct MeResponse {
+    pub username: String,
+    pub email: String,
+}
+
+#[derive(Deserialize)]
 struct ErrorResponse {
     error: String,
 }
@@ -75,6 +81,23 @@ impl ApiClient {
             .ok_or_else(|| TaskbookError::Auth("not logged in".to_string()))
     }
 
+    /// Extract error details from a non-success response.
+    fn error_from_response(resp: reqwest::blocking::Response, fallback: &str) -> TaskbookError {
+        let status = resp.status();
+        let detail = resp
+            .json::<ErrorResponse>()
+            .map(|e| e.error)
+            .unwrap_or_else(|_| fallback.to_string());
+        if status == reqwest::StatusCode::UNAUTHORIZED {
+            TaskbookError::Auth(format!(
+                "{} (session may have expired — try `tb --login`)",
+                detail
+            ))
+        } else {
+            TaskbookError::Network(format!("{} (HTTP {})", detail, status.as_u16()))
+        }
+    }
+
     pub fn register(&self, req: &RegisterRequest) -> Result<RegisterResponse> {
         let resp = self
             .client
@@ -87,11 +110,7 @@ impl ApiClient {
             resp.json::<RegisterResponse>()
                 .map_err(|e| TaskbookError::Network(e.to_string()))
         } else {
-            let err = resp
-                .json::<ErrorResponse>()
-                .map(|e| e.error)
-                .unwrap_or_else(|_| "registration failed".to_string());
-            Err(TaskbookError::Auth(err))
+            Err(Self::error_from_response(resp, "registration failed"))
         }
     }
 
@@ -107,11 +126,7 @@ impl ApiClient {
             resp.json::<LoginResponse>()
                 .map_err(|e| TaskbookError::Network(e.to_string()))
         } else {
-            let err = resp
-                .json::<ErrorResponse>()
-                .map(|e| e.error)
-                .unwrap_or_else(|_| "login failed".to_string());
-            Err(TaskbookError::Auth(err))
+            Err(Self::error_from_response(resp, "login failed"))
         }
     }
 
@@ -127,7 +142,24 @@ impl ApiClient {
         if resp.status().is_success() {
             Ok(())
         } else {
-            Err(TaskbookError::Auth("logout failed".to_string()))
+            Err(Self::error_from_response(resp, "logout failed"))
+        }
+    }
+
+    pub fn get_me(&self) -> Result<MeResponse> {
+        let auth = self.auth_header()?;
+        let resp = self
+            .client
+            .get(self.url("/api/v1/me"))
+            .header("Authorization", &auth)
+            .send()
+            .map_err(|e| TaskbookError::Network(e.to_string()))?;
+
+        if resp.status().is_success() {
+            resp.json::<MeResponse>()
+                .map_err(|e| TaskbookError::Network(e.to_string()))
+        } else {
+            Err(Self::error_from_response(resp, "failed to get user info"))
         }
     }
 
@@ -146,7 +178,7 @@ impl ApiClient {
                 .map_err(|e| TaskbookError::Network(e.to_string()))?;
             Ok(body.items)
         } else {
-            Err(TaskbookError::Network("failed to fetch items".to_string()))
+            Err(Self::error_from_response(resp, "failed to fetch items"))
         }
     }
 
@@ -166,7 +198,7 @@ impl ApiClient {
         if resp.status().is_success() {
             Ok(())
         } else {
-            Err(TaskbookError::Network("failed to save items".to_string()))
+            Err(Self::error_from_response(resp, "failed to save items"))
         }
     }
 
@@ -185,9 +217,7 @@ impl ApiClient {
                 .map_err(|e| TaskbookError::Network(e.to_string()))?;
             Ok(body.items)
         } else {
-            Err(TaskbookError::Network(
-                "failed to fetch archive".to_string(),
-            ))
+            Err(Self::error_from_response(resp, "failed to fetch archive"))
         }
     }
 
@@ -207,7 +237,7 @@ impl ApiClient {
         if resp.status().is_success() {
             Ok(())
         } else {
-            Err(TaskbookError::Network("failed to save archive".to_string()))
+            Err(Self::error_from_response(resp, "failed to save archive"))
         }
     }
 }
