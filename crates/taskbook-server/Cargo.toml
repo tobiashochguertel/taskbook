@@ -25,6 +25,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "registry", "f
 metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 base64 = "0.22"
+axum-oidc = "0.5"
+tower-sessions = { version = "0.13", features = ["memory-store"] }
+url = "2"
+openidconnect = "3"
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = "0.3"
 
