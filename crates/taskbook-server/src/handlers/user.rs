@@ -182,10 +182,10 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
     if !req
         .username
         .chars()
-        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
     {
         return Err(ServerError::Validation(
-            "username must contain only alphanumeric characters, hyphens, or underscores"
+            "username must contain only alphanumeric characters, hyphens, underscores, or dots"
                 .to_string(),
         ));
     }
@@ -283,5 +283,31 @@ mod tests {
     fn valid_registration_passes() {
         let req = make_req("valid_user", "user@example.com", "ValidPass1!");
         assert!(validate_registration(&req).is_ok());
+    }
+
+    #[test]
+    fn username_with_dot_is_accepted() {
+        let usernames = [
+            "tobias.hochguertel",
+            "first.last",
+            "user.name_123",
+            "a.b.c",
+        ];
+        for u in &usernames {
+            let req = make_req(u, "user@example.com", "ValidPass1!");
+            assert!(
+                validate_registration(&req).is_ok(),
+                "expected username with dot to be accepted: {u}"
+            );
+        }
+    }
+
+    #[test]
+    fn username_with_at_sign_is_rejected() {
+        let req = make_req("user@example.com", "user@example.com", "ValidPass1!");
+        assert!(
+            validate_registration(&req).is_err(),
+            "@ in username should be rejected — use the email field for email addresses"
+        );
     }
 }
