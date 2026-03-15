@@ -63,10 +63,11 @@ async fn strip_oidc_provider_params(
             if let Some(ref redir) = spa_redirect {
                 // Store in session so it survives the OIDC redirect round-trip.
                 if let Some(session) = req.extensions().get::<tower_sessions::Session>() {
-                    let _ = session.insert(SPA_REDIRECT_SESSION_KEY, redir.clone()).await;
+                    let _ = session
+                        .insert(SPA_REDIRECT_SESSION_KEY, redir.clone())
+                        .await;
                 }
-                req.extensions_mut()
-                    .insert(SpaRedirectUri(redir.clone()));
+                req.extensions_mut().insert(SpaRedirectUri(redir.clone()));
             }
             if new_q.len() != q.len() {
                 let new_pq_str = if new_q.is_empty() {

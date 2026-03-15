@@ -139,23 +139,21 @@ pub fn login(
         );
         existing.encryption_key
     } else {
-        prompt("Encryption key (leave blank to generate new): ")
-            .map(|s| {
-                if s.is_empty() {
-                    let raw_key = taskbook_common::encryption::generate_key();
-                    let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
-                    println!(
-                        "{}",
-                        "Generated new encryption key (save this — it cannot be recovered):"
-                            .yellow()
-                    );
-                    println!("  {}", key_b64.bright_white().bold());
-                    println!();
-                    key_b64
-                } else {
-                    s
-                }
-            })?
+        prompt("Encryption key (leave blank to generate new): ").map(|s| {
+            if s.is_empty() {
+                let raw_key = taskbook_common::encryption::generate_key();
+                let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+                println!(
+                    "{}",
+                    "Generated new encryption key (save this — it cannot be recovered):".yellow()
+                );
+                println!("  {}", key_b64.bright_white().bold());
+                println!();
+                key_b64
+            } else {
+                s
+            }
+        })?
     };
 
     let final_token = if let Some(t) = token {
@@ -320,8 +318,7 @@ pub fn set_token(
         println!();
         println!(
             "{}",
-            "Generated new encryption key (save this — it cannot be recovered):"
-                .yellow()
+            "Generated new encryption key (save this — it cannot be recovered):".yellow()
         );
         println!("  {}", key_b64.bright_white().bold());
         println!();
@@ -443,7 +440,8 @@ pub fn status() -> Result<()> {
                 println!();
                 println!(
                     "{}",
-                    "To authenticate: run `tb --login-sso` (browser SSO) or `tb --set-token`.".yellow()
+                    "To authenticate: run `tb --login-sso` (browser SSO) or `tb --set-token`."
+                        .yellow()
                 );
             }
         }
