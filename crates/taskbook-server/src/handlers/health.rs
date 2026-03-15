@@ -8,7 +8,7 @@ use crate::router::AppState;
 
 #[utoipa::path(
     get,
-    path = "/",
+    path = "/api/v1/info",
     responses(
         (status = 200, description = "Service info with available endpoints"),
     ),
@@ -19,7 +19,8 @@ pub async fn root_info() -> impl IntoResponse {
         "service": "taskbook-server",
         "oidc_login": "/auth/oidc/login",
         "api": "/api/v1/",
-        "health": "/api/v1/health"
+        "health": "/api/v1/health",
+        "ui": "/"
     }))
 }
 
