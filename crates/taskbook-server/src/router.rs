@@ -17,6 +17,43 @@ use crate::handlers::{events, health, items, user};
 use crate::metrics_middleware::HttpMetricsLayer;
 use crate::rate_limit::RateLimiter;
 
+/// Strip OIDC-provider-appended parameters (like `scope`) from the request URI
+/// before the axum-oidc middleware sees it. axum-oidc's `strip_oidc_from_path`
+/// only removes `code`, `state`, `session_state`, and `iss` — Authelia also
+/// echoes back `scope`, which would otherwise end up in the redirect_uri causing
+/// a mismatch between the authorization request and the token exchange.
+async fn strip_oidc_provider_params(
+    mut req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let uri = req.uri().clone();
+    if let Some(pq) = uri.path_and_query() {
+        if let Some(q) = pq.query() {
+            // Filter out 'scope' (echoed by Authelia) — the OIDC layers handle scopes themselves
+            let new_q: String = q
+                .split('&')
+                .filter(|p| !p.starts_with("scope="))
+                .collect::<Vec<_>>()
+                .join("&");
+            if new_q.len() != q.len() {
+                let new_pq_str = if new_q.is_empty() {
+                    pq.path().to_string()
+                } else {
+                    format!("{}?{}", pq.path(), new_q)
+                };
+                if let Ok(new_pq) = new_pq_str.parse::<axum::http::uri::PathAndQuery>() {
+                    let mut parts = uri.into_parts();
+                    parts.path_and_query = Some(new_pq);
+                    if let Ok(new_uri) = axum::http::Uri::from_parts(parts) {
+                        *req.uri_mut() = new_uri;
+                    }
+                }
+            }
+        }
+    }
+    next.run(req).await
+}
+
 /// Event broadcast to connected SSE clients when data changes.
 #[derive(Debug, Clone)]
 pub enum SyncEvent {
@@ -143,6 +180,7 @@ pub async fn build(
                     }))
                     .layer(oidc_layer),
             )
+            .layer(axum::middleware::from_fn(strip_oidc_provider_params))
             .layer(session_layer)
             .with_state(state);
 
