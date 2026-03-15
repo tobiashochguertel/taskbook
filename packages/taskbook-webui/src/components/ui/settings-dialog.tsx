@@ -1,9 +1,17 @@
 import { Monitor, Moon, Sun, X } from "lucide-react";
+import { useState } from "react";
 import { useSettings, type NavStyle, type Theme } from "../../lib/settings";
 
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
+  token?: string;
+  encryptionKey?: string;
+  username?: string;
+  email?: string;
+  onKeyImport?: (key: string) => void;
+  onKeyReset?: () => void;
+  onUsernameChange?: (newName: string) => void;
 }
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
@@ -18,10 +26,31 @@ const NAV_STYLES: { value: NavStyle; label: string; desc: string }[] = [
   { value: "burger", label: "Menu only", desc: "Burger menu" },
 ];
 
-export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
+export function SettingsDialog({
+  open,
+  onClose,
+  token,
+  encryptionKey,
+  username,
+  email,
+  onKeyImport,
+  onKeyReset,
+  onUsernameChange,
+}: SettingsDialogProps) {
   const { settings, update } = useSettings();
+  const [editUsername, setEditUsername] = useState(username || "");
+  const [showKey, setShowKey] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [importKey, setImportKey] = useState("");
 
   if (!open) return null;
+
+  const handleUpdateUsername = () => {
+    if (editUsername && editUsername !== username) {
+      onUsernameChange?.(editUsername);
+    }
+  };
 
   return (
     <div
@@ -67,6 +96,75 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         </div>
 
         <div className="px-6 py-5 space-y-6">
+          {/* Profile */}
+          <section>
+            <label
+              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Profile
+            </label>
+            <div className="space-y-3">
+              <div>
+                <label
+                  className="block text-xs mb-1"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  Username
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    className="flex-1 p-2 rounded text-sm border-none outline-none"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      color: "var(--color-text)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!editUsername || editUsername === username}
+                    onClick={handleUpdateUsername}
+                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                    style={{
+                      backgroundColor:
+                        editUsername && editUsername !== username
+                          ? "var(--color-accent)"
+                          : "var(--color-surface-hover)",
+                      color:
+                        editUsername && editUsername !== username
+                          ? "white"
+                          : "var(--color-text-muted)",
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+              {email && (
+                <div>
+                  <label
+                    className="block text-xs mb-1"
+                    style={{ color: "var(--color-text-muted)" }}
+                  >
+                    Email
+                  </label>
+                  <div
+                    className="p-2 rounded text-sm"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      color: "var(--color-text-muted)",
+                    }}
+                  >
+                    {email}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
           {/* Theme */}
           <section>
             <label
@@ -163,6 +261,168 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               checked={settings.compactCards}
               onChange={(v) => update({ compactCards: v })}
             />
+          </section>
+
+          {/* Encryption Key */}
+          <section>
+            <label
+              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Encryption Key
+            </label>
+            <div className="space-y-3">
+              {encryptionKey ? (
+                <div className="flex items-center gap-2">
+                  <div
+                    className="flex-1 p-2 rounded text-xs font-mono truncate"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      color: "var(--color-text-muted)",
+                    }}
+                  >
+                    {showKey
+                      ? encryptionKey
+                      : "••••••••••••••••••••••••"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                    style={{
+                      backgroundColor: "var(--color-surface-hover)",
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    {showKey ? "Hide" : "Show"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      encryptionKey &&
+                      navigator.clipboard.writeText(encryptionKey)
+                    }
+                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                    style={{
+                      backgroundColor: "var(--color-surface-hover)",
+                      color: "var(--color-text)",
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+              ) : (
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  No encryption key set. Import one to access encrypted data.
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowImport(!showImport)}
+                  className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                  style={{
+                    backgroundColor: "var(--color-accent)",
+                    color: "white",
+                  }}
+                >
+                  Import Key
+                </button>
+                {encryptionKey && (
+                  <button
+                    type="button"
+                    onClick={() => setShowReset(true)}
+                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                    style={{
+                      backgroundColor: "var(--color-error)",
+                      color: "white",
+                    }}
+                  >
+                    Reset Key
+                  </button>
+                )}
+              </div>
+              {showImport && (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Paste encryption key..."
+                    value={importKey}
+                    onChange={(e) => setImportKey(e.target.value)}
+                    className="w-full p-2 rounded text-xs font-mono border-none outline-none"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      color: "var(--color-text)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!importKey}
+                    onClick={() => {
+                      onKeyImport?.(importKey);
+                      setShowImport(false);
+                      setImportKey("");
+                    }}
+                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                    style={{
+                      backgroundColor: importKey
+                        ? "var(--color-success)"
+                        : "var(--color-surface-hover)",
+                      color: "white",
+                    }}
+                  >
+                    Save Key
+                  </button>
+                </div>
+              )}
+              {showReset && (
+                <div
+                  className="p-3 rounded"
+                  style={{
+                    backgroundColor: "var(--color-bg)",
+                    border: "1px solid var(--color-error)",
+                  }}
+                >
+                  <p
+                    className="text-xs mb-2"
+                    style={{ color: "var(--color-error)" }}
+                  >
+                    ⚠️ This will delete all your encrypted data. This cannot be
+                    undone.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowReset(false)}
+                      className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                      style={{
+                        backgroundColor: "var(--color-surface-hover)",
+                        color: "var(--color-text)",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onKeyReset?.();
+                        setShowReset(false);
+                      }}
+                      className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                      style={{
+                        backgroundColor: "var(--color-error)",
+                        color: "white",
+                      }}
+                    >
+                      Reset Key & Delete Data
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
         </div>
       </div>

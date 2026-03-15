@@ -50,11 +50,13 @@ function clearAuth() {
 export function parseAuthCallback(hash: string): {
   token: string | null;
   encryptionKey: string | null;
+  newUser: boolean;
 } {
   const params = new URLSearchParams(hash.replace(/^#/, ""));
   return {
     token: params.get("token"),
     encryptionKey: params.get("encryption_key"),
+    newUser: params.get("new_user") === "true",
   };
 }
 

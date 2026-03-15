@@ -17,11 +17,12 @@ import { SettingsDialog } from "../components/ui/settings-dialog";
 import { TaskCard } from "../components/ui/task-card";
 import { useEventSync, useItems, useUser } from "../hooks/useItems";
 import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
 import { useSettings } from "../lib/settings";
 import { getBoards, isTask, type StorageItem, type TaskItem, type NoteItem } from "../lib/types";
 
 export function BoardPage() {
-  const { logout } = useAuth();
+  const { token, encryptionKey, setCredentials, logout } = useAuth();
   const { items, itemsList, isLoading, refetch, updateItems, isUpdating } =
     useItems();
   const user = useUser();
@@ -34,6 +35,11 @@ export function BoardPage() {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("tasks");
+  const [username, setUsername] = useState<string | undefined>(undefined);
+
+  // Keep username in sync with user query data
+  const displayUsername = username ?? user.data?.username;
+  const userEmail = user.data?.email;
 
   const boards = useMemo(() => getBoards(itemsList), [itemsList]);
   const currentBoard = selectedBoard ?? boards[0] ?? "My Board";
@@ -393,6 +399,29 @@ export function BoardPage() {
       <SettingsDialog
         open={showSettings}
         onClose={() => setShowSettings(false)}
+        token={token ?? undefined}
+        encryptionKey={encryptionKey ?? undefined}
+        username={displayUsername}
+        email={userEmail}
+        onKeyImport={(key) => {
+          if (token) {
+            setCredentials(token, key);
+            api.storeEncryptionKey(token, key);
+          }
+        }}
+        onKeyReset={() => {
+          if (token) {
+            api.resetEncryptionKey(token);
+            setCredentials(token, "");
+          }
+        }}
+        onUsernameChange={(newName) => {
+          if (token) {
+            api.updateMe(token, { username: newName }).then((u) =>
+              setUsername(u.username),
+            );
+          }
+        }}
       />
 
       {/* Command palette */}

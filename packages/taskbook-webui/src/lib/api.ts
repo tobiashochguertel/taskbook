@@ -84,10 +84,38 @@ async function request<T>(
   return response.json();
 }
 
+export interface EncryptionKeyStatusResponse {
+  has_key: boolean;
+}
+
 export const api = {
   health: () => request<HealthResponse>("/api/v1/health"),
 
   me: (token: string) => request<MeResponse>("/api/v1/me", {}, token),
+
+  updateMe: (token: string, data: { username?: string }) =>
+    request<MeResponse>(
+      "/api/v1/me",
+      { method: "PATCH", body: JSON.stringify(data) },
+      token,
+    ),
+
+  getEncryptionKeyStatus: (token: string) =>
+    request<EncryptionKeyStatusResponse>("/api/v1/me/encryption-key", {}, token),
+
+  storeEncryptionKey: (token: string, encryptionKey: string) =>
+    request<EncryptionKeyStatusResponse>(
+      "/api/v1/me/encryption-key",
+      { method: "POST", body: JSON.stringify({ encryption_key: encryptionKey }) },
+      token,
+    ),
+
+  resetEncryptionKey: (token: string) =>
+    request<EncryptionKeyStatusResponse>(
+      "/api/v1/me/encryption-key",
+      { method: "DELETE" },
+      token,
+    ),
 
   getItems: (token: string) =>
     request<ItemsResponse>("/api/v1/items", {}, token),
