@@ -1,7 +1,9 @@
 import {
+  Archive,
   Folder,
   LogOut,
   Menu,
+  Plus,
   Settings,
   User,
   X,
@@ -13,7 +15,9 @@ interface DrawerProps {
   currentBoard: string;
   onSelectBoard: (board: string) => void;
   onOpenSettings: () => void;
+  onOpenArchive: () => void;
   onLogout: () => void;
+  onAddBoard: (name: string) => void;
   username?: string;
   email?: string;
 }
@@ -42,11 +46,15 @@ export function Drawer({
   currentBoard,
   onSelectBoard,
   onOpenSettings,
+  onOpenArchive,
   onLogout,
+  onAddBoard,
   username,
   email,
 }: DrawerProps) {
   const [open, setOpen] = useState(false);
+  const [showNewBoard, setShowNewBoard] = useState(false);
+  const [newBoardName, setNewBoardName] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -178,6 +186,51 @@ export function Drawer({
                   <span className="text-sm">@{board}</span>
                 </button>
               ))}
+
+              {/* New board */}
+              {showNewBoard ? (
+                <div className="px-4 py-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newBoardName}
+                    onChange={(e) => setNewBoardName(e.target.value)}
+                    placeholder="Board name..."
+                    className="flex-1 p-2 rounded text-sm border-none outline-none"
+                    style={{
+                      backgroundColor: "var(--color-bg)",
+                      color: "var(--color-text)",
+                    }}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newBoardName.trim()) {
+                        onAddBoard(newBoardName.trim());
+                        onSelectBoard(newBoardName.trim());
+                        setNewBoardName("");
+                        setShowNewBoard(false);
+                        setOpen(false);
+                      }
+                      if (e.key === "Escape") {
+                        setShowNewBoard(false);
+                        setNewBoardName("");
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowNewBoard(true)}
+                  className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
+                  style={{
+                    color: "var(--color-text-muted)",
+                    background: "none",
+                    minHeight: 44,
+                  }}
+                >
+                  <Plus size={16} />
+                  <span className="text-sm">New Board</span>
+                </button>
+              )}
             </div>
 
             {/* Footer actions */}
@@ -185,6 +238,22 @@ export function Drawer({
               className="border-t py-2 px-2"
               style={{ borderColor: "var(--color-border)" }}
             >
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onOpenArchive();
+                }}
+                className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
+                style={{
+                  color: "var(--color-text)",
+                  background: "none",
+                  minHeight: 44,
+                }}
+              >
+                <Archive size={16} />
+                <span className="text-sm">Archive</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {

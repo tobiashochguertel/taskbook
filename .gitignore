@@ -21,3 +21,4 @@ k8s/
 # OS
 .DS_Store
 result
+binaries/

@@ -1,10 +1,13 @@
 import {
+  Archive,
+  ArchiveRestore,
   CheckSquare,
   ChevronDown,
   LogOut,
   RefreshCw,
   Search,
   StickyNote,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { CommandPalette } from "../components/ui/command-palette";
@@ -12,19 +15,27 @@ import { ConnectionIndicator } from "../components/ui/connection-indicator";
 import { CreateItemSheet } from "../components/ui/create-item-sheet";
 import { Drawer } from "../components/ui/drawer";
 import { Fab } from "../components/ui/fab";
-import { MobileTabs, type MobileTab } from "../components/ui/mobile-tabs";
+import { type MobileTab, MobileTabs } from "../components/ui/mobile-tabs";
 import { SettingsDialog } from "../components/ui/settings-dialog";
 import { TaskCard } from "../components/ui/task-card";
-import { useEventSync, useItems, useUser } from "../hooks/useItems";
-import { useAuth } from "../lib/auth";
+import { useArchive, useEventSync, useItems, useUser } from "../hooks/useItems";
 import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { useSettings } from "../lib/settings";
-import { getBoards, isTask, type StorageItem, type TaskItem, type NoteItem } from "../lib/types";
+import {
+  getBoards,
+  isTask,
+  type NoteItem,
+  type StorageItem,
+  type TaskItem,
+} from "../lib/types";
 
 export function BoardPage() {
   const { token, encryptionKey, setCredentials, logout } = useAuth();
   const { items, itemsList, isLoading, refetch, updateItems, isUpdating } =
     useItems();
+  const { archiveItems, archiveList, updateArchive, isArchiveLoading } =
+    useArchive();
   const user = useUser();
   useEventSync();
 
@@ -34,6 +45,7 @@ export function BoardPage() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showArchiveView, setShowArchiveView] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("tasks");
   const [username, setUsername] = useState<string | undefined>(undefined);
 
@@ -41,8 +53,32 @@ export function BoardPage() {
   const displayUsername = username ?? user.data?.username;
   const userEmail = user.data?.email;
 
-  const boards = useMemo(() => getBoards(itemsList), [itemsList]);
+  // Custom boards stored in localStorage for empty boards
+  const [customBoards, setCustomBoards] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("tb_custom_boards");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const itemBoards = useMemo(() => getBoards(itemsList), [itemsList]);
+  const boards = useMemo(() => {
+    const all = new Set([...itemBoards, ...customBoards]);
+    return Array.from(all).sort();
+  }, [itemBoards, customBoards]);
+
   const currentBoard = selectedBoard ?? boards[0] ?? "My Board";
+
+  const addCustomBoard = useCallback((name: string) => {
+    setCustomBoards((prev) => {
+      if (prev.includes(name)) return prev;
+      const next = [...prev, name];
+      localStorage.setItem("tb_custom_boards", JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   const boardItems = useMemo(() => {
     return itemsList.filter((item) => item.boards.includes(currentBoard));
@@ -60,6 +96,8 @@ export function BoardPage() {
     () => boardItems.filter((i) => isTask(i) && i.isComplete),
     [boardItems],
   );
+
+  // ── Item callbacks ──
 
   const toggleComplete = useCallback(
     (item: StorageItem) => {
@@ -79,6 +117,107 @@ export function BoardPage() {
     },
     [items, updateItems],
   );
+
+  const deleteItem = useCallback(
+    (item: StorageItem) => {
+      const updated = { ...items };
+      delete updated[String(item.id)];
+      updateItems(updated);
+    },
+    [items, updateItems],
+  );
+
+  const editItem = useCallback(
+    (item: StorageItem, newDescription: string) => {
+      const updated = { ...items };
+      updated[String(item.id)] = { ...item, description: newDescription };
+      updateItems(updated);
+    },
+    [items, updateItems],
+  );
+
+  const toggleProgress = useCallback(
+    (item: StorageItem) => {
+      if (!isTask(item)) return;
+      const updated = { ...items };
+      updated[String(item.id)] = { ...item, inProgress: !item.inProgress };
+      updateItems(updated);
+    },
+    [items, updateItems],
+  );
+
+  const changePriority = useCallback(
+    (item: StorageItem, newPriority: number) => {
+      if (!isTask(item)) return;
+      const updated = { ...items };
+      updated[String(item.id)] = { ...item, priority: newPriority };
+      updateItems(updated);
+    },
+    [items, updateItems],
+  );
+
+  const moveToBoard = useCallback(
+    (item: StorageItem, targetBoard: string) => {
+      const updated = { ...items };
+      updated[String(item.id)] = { ...item, boards: [targetBoard] };
+      updateItems(updated);
+    },
+    [items, updateItems],
+  );
+
+  const updateTags = useCallback(
+    (item: StorageItem, newTags: string[]) => {
+      const updated = { ...items };
+      updated[String(item.id)] = { ...item, tags: newTags };
+      updateItems(updated);
+    },
+    [items, updateItems],
+  );
+
+  const archiveItem = useCallback(
+    (item: StorageItem) => {
+      const updatedItems = { ...items };
+      delete updatedItems[String(item.id)];
+      updateItems(updatedItems);
+      const updatedArchive = { ...archiveItems, [String(item.id)]: item };
+      updateArchive(updatedArchive);
+    },
+    [items, archiveItems, updateItems, updateArchive],
+  );
+
+  const restoreItem = useCallback(
+    (item: StorageItem) => {
+      const updatedArchive = { ...archiveItems };
+      delete updatedArchive[String(item.id)];
+      updateArchive(updatedArchive);
+      const updatedItems = { ...items, [String(item.id)]: item };
+      updateItems(updatedItems);
+    },
+    [items, archiveItems, updateItems, updateArchive],
+  );
+
+  const clearChecked = useCallback(() => {
+    const completedItems = itemsList.filter(
+      (i) => isTask(i) && i.isComplete && i.boards.includes(currentBoard),
+    );
+    if (completedItems.length === 0) return;
+
+    const updatedItems = { ...items };
+    const updatedArchive = { ...archiveItems };
+    for (const item of completedItems) {
+      delete updatedItems[String(item.id)];
+      updatedArchive[String(item.id)] = item;
+    }
+    updateItems(updatedItems);
+    updateArchive(updatedArchive);
+  }, [
+    items,
+    archiveItems,
+    itemsList,
+    currentBoard,
+    updateItems,
+    updateArchive,
+  ]);
 
   const createTask = useCallback(
     (description: string, board: string, priority: number) => {
@@ -156,6 +295,18 @@ export function BoardPage() {
     return done;
   }, [mobileTab, tasks, notes, done]);
 
+  // Shared column callback props
+  const columnCallbacks = {
+    onDelete: deleteItem,
+    onEdit: editItem,
+    onToggleProgress: toggleProgress,
+    onChangePriority: changePriority,
+    onMoveToBoard: moveToBoard,
+    onUpdateTags: updateTags,
+    onArchive: archiveItem,
+    boards,
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -165,6 +316,89 @@ export function BoardPage() {
         >
           Loading...
         </div>
+      </div>
+    );
+  }
+
+  // ── Archive view ──
+  if (showArchiveView) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <header
+          className="flex items-center justify-between px-3 md:px-6 py-2 border-b safe-top"
+          style={{
+            backgroundColor: "var(--color-surface)",
+            borderColor: "var(--color-border)",
+          }}
+        >
+          <div className="flex items-center gap-2 md:gap-4">
+            <button
+              type="button"
+              onClick={() => setShowArchiveView(false)}
+              className="flex items-center justify-center cursor-pointer border-none rounded-md"
+              style={{
+                color: "var(--color-text-muted)",
+                background: "none",
+                width: 44,
+                height: 44,
+              }}
+            >
+              ←
+            </button>
+            <h1
+              className="text-base md:text-lg font-bold"
+              style={{ color: "var(--color-accent)" }}
+            >
+              <Archive size={16} className="inline mr-2" />
+              Archive
+            </h1>
+          </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-2xl mx-auto w-full">
+          {isArchiveLoading ? (
+            <div
+              className="text-center py-8 animate-pulse"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Loading archive...
+            </div>
+          ) : archiveList.length === 0 ? (
+            <p
+              className="text-sm py-8 text-center"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              No archived items
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {archiveList.map((item) => (
+                <div key={item.id} className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <TaskCard
+                      item={item}
+                      onToggleComplete={() => {}}
+                      onToggleStar={() => {}}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => restoreItem(item)}
+                    className="flex items-center gap-1 px-3 py-2 rounded text-xs cursor-pointer border-none shrink-0"
+                    style={{
+                      backgroundColor: "var(--color-accent)",
+                      color: "white",
+                      minHeight: 44,
+                    }}
+                    title="Restore"
+                  >
+                    <ArchiveRestore size={14} />
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
       </div>
     );
   }
@@ -187,7 +421,9 @@ export function BoardPage() {
               currentBoard={currentBoard}
               onSelectBoard={setSelectedBoard}
               onOpenSettings={() => setShowSettings(true)}
+              onOpenArchive={() => setShowArchiveView(true)}
               onLogout={logout}
+              onAddBoard={addCustomBoard}
               username={user.data?.username}
               email={user.data?.email}
             />
@@ -234,6 +470,24 @@ export function BoardPage() {
         </div>
 
         <div className="flex items-center gap-1 md:gap-3">
+          {/* Archive button (desktop) */}
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={() => setShowArchiveView(true)}
+              className="flex items-center justify-center cursor-pointer border-none rounded-md"
+              style={{
+                color: "var(--color-text-muted)",
+                background: "none",
+                width: 44,
+                height: 44,
+              }}
+              title="Archive"
+            >
+              <Archive size={16} />
+            </button>
+          )}
+
           {/* Search icon */}
           <button
             type="button"
@@ -311,6 +565,9 @@ export function BoardPage() {
             tab={mobileTab}
             onToggleComplete={toggleComplete}
             onToggleStar={toggleStar}
+            onClearChecked={mobileTab === "done" ? clearChecked : undefined}
+            doneCount={mobileTab === "done" ? done.length : 0}
+            {...columnCallbacks}
           />
         </main>
       ) : (
@@ -323,6 +580,7 @@ export function BoardPage() {
             onToggleComplete={toggleComplete}
             onToggleStar={toggleStar}
             accentColor="var(--color-warning)"
+            {...columnCallbacks}
           />
           <Column
             title="Notes"
@@ -331,6 +589,7 @@ export function BoardPage() {
             onToggleComplete={toggleComplete}
             onToggleStar={toggleStar}
             accentColor="var(--color-info)"
+            {...columnCallbacks}
           />
           <Column
             title="Done"
@@ -339,6 +598,8 @@ export function BoardPage() {
             onToggleComplete={toggleComplete}
             onToggleStar={toggleStar}
             accentColor="var(--color-success)"
+            onClearChecked={clearChecked}
+            {...columnCallbacks}
           />
         </main>
       )}
@@ -393,6 +654,7 @@ export function BoardPage() {
         onCreateNote={createNote}
         boards={boards.length > 0 ? boards : ["My Board"]}
         defaultBoard={currentBoard}
+        onAddBoard={addCustomBoard}
       />
 
       {/* Settings dialog */}
@@ -417,9 +679,9 @@ export function BoardPage() {
         }}
         onUsernameChange={(newName) => {
           if (token) {
-            api.updateMe(token, { username: newName }).then((u) =>
-              setUsername(u.username),
-            );
+            api
+              .updateMe(token, { username: newName })
+              .then((u) => setUsername(u.username));
           }
         }}
       />
@@ -437,18 +699,35 @@ export function BoardPage() {
   );
 }
 
+/* ── Shared column callback types ─────────────────────── */
+interface ColumnCallbacks {
+  onDelete: (item: StorageItem) => void;
+  onEdit: (item: StorageItem, desc: string) => void;
+  onToggleProgress: (item: StorageItem) => void;
+  onChangePriority: (item: StorageItem, p: number) => void;
+  onMoveToBoard: (item: StorageItem, board: string) => void;
+  onUpdateTags: (item: StorageItem, tags: string[]) => void;
+  onArchive: (item: StorageItem) => void;
+  boards: string[];
+}
+
 /* ── Mobile single-column view ─────────────────────────── */
 function MobileColumn({
   items,
   tab,
   onToggleComplete,
   onToggleStar,
+  onClearChecked,
+  doneCount,
+  ...callbacks
 }: {
   items: StorageItem[];
   tab: MobileTab;
   onToggleComplete: (item: StorageItem) => void;
   onToggleStar: (item: StorageItem) => void;
-}) {
+  onClearChecked?: () => void;
+  doneCount: number;
+} & ColumnCallbacks) {
   const labels: Record<MobileTab, string> = {
     tasks: "Tasks",
     notes: "Notes",
@@ -476,6 +755,22 @@ function MobileColumn({
         >
           {items.length}
         </span>
+        {onClearChecked && doneCount > 0 && (
+          <button
+            type="button"
+            onClick={onClearChecked}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer border-none"
+            style={{
+              backgroundColor: "var(--color-surface-hover)",
+              color: "var(--color-text-muted)",
+              minHeight: 32,
+            }}
+            title="Archive all completed"
+          >
+            <Trash2 size={12} />
+            Clear
+          </button>
+        )}
       </div>
       <div className="space-y-2">
         {items.length === 0 ? (
@@ -492,6 +787,14 @@ function MobileColumn({
               item={item}
               onToggleComplete={() => onToggleComplete(item)}
               onToggleStar={() => onToggleStar(item)}
+              onDelete={() => callbacks.onDelete(item)}
+              onEdit={(desc) => callbacks.onEdit(item, desc)}
+              onToggleProgress={() => callbacks.onToggleProgress(item)}
+              onChangePriority={(p) => callbacks.onChangePriority(item, p)}
+              onMoveToBoard={(b) => callbacks.onMoveToBoard(item, b)}
+              onUpdateTags={(tags) => callbacks.onUpdateTags(item, tags)}
+              onArchive={() => callbacks.onArchive(item)}
+              boards={callbacks.boards}
             />
           ))
         )}
@@ -508,6 +811,8 @@ function Column({
   onToggleComplete,
   onToggleStar,
   accentColor,
+  onClearChecked,
+  ...callbacks
 }: {
   title: string;
   icon: React.ReactNode;
@@ -515,7 +820,8 @@ function Column({
   onToggleComplete: (item: StorageItem) => void;
   onToggleStar: (item: StorageItem) => void;
   accentColor: string;
-}) {
+  onClearChecked?: () => void;
+} & ColumnCallbacks) {
   return (
     <div>
       <div
@@ -523,7 +829,10 @@ function Column({
         style={{ borderColor: "var(--color-border)" }}
       >
         <span style={{ color: accentColor }}>{icon}</span>
-        <h2 className="text-sm md:text-base font-semibold" style={{ color: accentColor }}>
+        <h2
+          className="text-sm md:text-base font-semibold"
+          style={{ color: accentColor }}
+        >
           {title}
         </h2>
         <span
@@ -535,6 +844,22 @@ function Column({
         >
           {items.length}
         </span>
+        {onClearChecked && items.length > 0 && (
+          <button
+            type="button"
+            onClick={onClearChecked}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer border-none"
+            style={{
+              backgroundColor: "var(--color-surface-hover)",
+              color: "var(--color-text-muted)",
+              minHeight: 32,
+            }}
+            title="Archive all completed"
+          >
+            <Trash2 size={12} />
+            Clear
+          </button>
+        )}
       </div>
       <div className="space-y-2">
         {items.length === 0 ? (
@@ -551,6 +876,14 @@ function Column({
               item={item}
               onToggleComplete={() => onToggleComplete(item)}
               onToggleStar={() => onToggleStar(item)}
+              onDelete={() => callbacks.onDelete(item)}
+              onEdit={(desc) => callbacks.onEdit(item, desc)}
+              onToggleProgress={() => callbacks.onToggleProgress(item)}
+              onChangePriority={(p) => callbacks.onChangePriority(item, p)}
+              onMoveToBoard={(b) => callbacks.onMoveToBoard(item, b)}
+              onUpdateTags={(tags) => callbacks.onUpdateTags(item, tags)}
+              onArchive={() => callbacks.onArchive(item)}
+              boards={callbacks.boards}
             />
           ))
         )}

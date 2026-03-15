@@ -1,6 +1,6 @@
 import { Monitor, Moon, Sun, X } from "lucide-react";
 import { useState } from "react";
-import { useSettings, type NavStyle, type Theme } from "../../lib/settings";
+import { type NavStyle, type Theme, useSettings } from "../../lib/settings";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -26,10 +26,12 @@ const NAV_STYLES: { value: NavStyle; label: string; desc: string }[] = [
   { value: "burger", label: "Menu only", desc: "Burger menu" },
 ];
 
+type SettingsTab = "general" | "profile" | "security";
+
 export function SettingsDialog({
   open,
   onClose,
-  token,
+  token: _token,
   encryptionKey,
   username,
   email,
@@ -37,12 +39,13 @@ export function SettingsDialog({
   onKeyReset,
   onUsernameChange,
 }: SettingsDialogProps) {
-  const { settings, update } = useSettings();
+  const { settings, update, isMobile } = useSettings();
   const [editUsername, setEditUsername] = useState(username || "");
   const [showKey, setShowKey] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [importKey, setImportKey] = useState("");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 
   if (!open) return null;
 
@@ -51,6 +54,332 @@ export function SettingsDialog({
       onUsernameChange?.(editUsername);
     }
   };
+
+  const generalSection = (
+    <>
+      {/* Theme */}
+      <section>
+        <label
+          className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          Theme
+        </label>
+        <div className="flex gap-2">
+          {THEMES.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => update({ theme: value })}
+              className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg cursor-pointer border-2 transition-colors"
+              style={{
+                backgroundColor:
+                  settings.theme === value
+                    ? "var(--color-surface-hover)"
+                    : "var(--color-bg)",
+                borderColor:
+                  settings.theme === value
+                    ? "var(--color-accent)"
+                    : "var(--color-border)",
+                color:
+                  settings.theme === value
+                    ? "var(--color-accent)"
+                    : "var(--color-text-muted)",
+                minHeight: 44,
+              }}
+            >
+              <Icon size={18} />
+              <span className="text-xs">{label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Navigation style */}
+      <section>
+        <label
+          className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          Navigation
+        </label>
+        <div className="space-y-2">
+          {NAV_STYLES.map(({ value, label, desc }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => update({ navStyle: value })}
+              className="flex items-center justify-between w-full px-4 py-3 rounded-lg cursor-pointer border-2 text-left transition-colors"
+              style={{
+                backgroundColor:
+                  settings.navStyle === value
+                    ? "var(--color-surface-hover)"
+                    : "var(--color-bg)",
+                borderColor:
+                  settings.navStyle === value
+                    ? "var(--color-accent)"
+                    : "var(--color-border)",
+                color: "var(--color-text)",
+                minHeight: 44,
+              }}
+            >
+              <div>
+                <div className="text-sm font-medium">{label}</div>
+                <div
+                  className="text-xs"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  {desc}
+                </div>
+              </div>
+              {settings.navStyle === value && (
+                <span style={{ color: "var(--color-accent)" }}>✓</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Toggles */}
+      <section className="space-y-3">
+        <ToggleRow
+          label="Swipe gestures"
+          description="Swipe right to complete tasks"
+          checked={settings.swipeGestures}
+          onChange={(v) => update({ swipeGestures: v })}
+        />
+        <ToggleRow
+          label="Compact cards"
+          description="Smaller task cards"
+          checked={settings.compactCards}
+          onChange={(v) => update({ compactCards: v })}
+        />
+      </section>
+    </>
+  );
+
+  const profileSection = (
+    <section>
+      <label
+        className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        Profile
+      </label>
+      <div className="space-y-3">
+        <div>
+          <label
+            className="block text-xs mb-1"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            Username
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={editUsername}
+              onChange={(e) => setEditUsername(e.target.value)}
+              className="flex-1 p-2 rounded text-sm border-none outline-none"
+              style={{
+                backgroundColor: "var(--color-bg)",
+                color: "var(--color-text)",
+              }}
+            />
+            <button
+              type="button"
+              disabled={!editUsername || editUsername === username}
+              onClick={handleUpdateUsername}
+              className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+              style={{
+                backgroundColor:
+                  editUsername && editUsername !== username
+                    ? "var(--color-accent)"
+                    : "var(--color-surface-hover)",
+                color:
+                  editUsername && editUsername !== username
+                    ? "white"
+                    : "var(--color-text-muted)",
+              }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+        {email && (
+          <div>
+            <label
+              className="block text-xs mb-1"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Email
+            </label>
+            <div
+              className="p-2 rounded text-sm"
+              style={{
+                backgroundColor: "var(--color-bg)",
+                color: "var(--color-text-muted)",
+              }}
+            >
+              {email}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  const securitySection = (
+    <section>
+      <label
+        className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        Encryption Key
+      </label>
+      <div className="space-y-3">
+        {encryptionKey ? (
+          <div className="flex items-center gap-2">
+            <div
+              className="flex-1 p-2 rounded text-xs font-mono truncate"
+              style={{
+                backgroundColor: "var(--color-bg)",
+                color: "var(--color-text-muted)",
+              }}
+            >
+              {showKey ? encryptionKey : "••••••••••••••••••••••••"}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+              style={{
+                backgroundColor: "var(--color-surface-hover)",
+                color: "var(--color-text)",
+              }}
+            >
+              {showKey ? "Hide" : "Show"}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                encryptionKey && navigator.clipboard.writeText(encryptionKey)
+              }
+              className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+              style={{
+                backgroundColor: "var(--color-surface-hover)",
+                color: "var(--color-text)",
+              }}
+            >
+              Copy
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+            No encryption key set. Import one to access encrypted data.
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowImport(!showImport)}
+            className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+            style={{
+              backgroundColor: "var(--color-accent)",
+              color: "white",
+            }}
+          >
+            Import Key
+          </button>
+          {encryptionKey && (
+            <button
+              type="button"
+              onClick={() => setShowReset(true)}
+              className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+              style={{
+                backgroundColor: "var(--color-error)",
+                color: "white",
+              }}
+            >
+              Reset Key
+            </button>
+          )}
+        </div>
+        {showImport && (
+          <div className="space-y-2">
+            <input
+              type="text"
+              placeholder="Paste encryption key..."
+              value={importKey}
+              onChange={(e) => setImportKey(e.target.value)}
+              className="w-full p-2 rounded text-xs font-mono border-none outline-none"
+              style={{
+                backgroundColor: "var(--color-bg)",
+                color: "var(--color-text)",
+              }}
+            />
+            <button
+              type="button"
+              disabled={!importKey}
+              onClick={() => {
+                onKeyImport?.(importKey);
+                setShowImport(false);
+                setImportKey("");
+              }}
+              className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+              style={{
+                backgroundColor: importKey
+                  ? "var(--color-success)"
+                  : "var(--color-surface-hover)",
+                color: "white",
+              }}
+            >
+              Save Key
+            </button>
+          </div>
+        )}
+        {showReset && (
+          <div
+            className="p-3 rounded"
+            style={{
+              backgroundColor: "var(--color-bg)",
+              border: "1px solid var(--color-error)",
+            }}
+          >
+            <p className="text-xs mb-2" style={{ color: "var(--color-error)" }}>
+              ⚠️ This will delete all your encrypted data. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowReset(false)}
+                className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                style={{
+                  backgroundColor: "var(--color-surface-hover)",
+                  color: "var(--color-text)",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onKeyReset?.();
+                  setShowReset(false);
+                }}
+                className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                style={{
+                  backgroundColor: "var(--color-error)",
+                  color: "white",
+                }}
+              >
+                Reset Key & Delete Data
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 
   return (
     <div
@@ -95,336 +424,56 @@ export function SettingsDialog({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-6">
-          {/* Profile */}
-          <section>
-            <label
-              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
-              style={{ color: "var(--color-text-muted)" }}
+        {isMobile ? (
+          /* ── Mobile: tabbed layout ── */
+          <>
+            <div
+              className="flex border-b"
+              style={{ borderColor: "var(--color-border)" }}
             >
-              Profile
-            </label>
-            <div className="space-y-3">
-              <div>
-                <label
-                  className="block text-xs mb-1"
-                  style={{ color: "var(--color-text-muted)" }}
-                >
-                  Username
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={editUsername}
-                    onChange={(e) => setEditUsername(e.target.value)}
-                    className="flex-1 p-2 rounded text-sm border-none outline-none"
-                    style={{
-                      backgroundColor: "var(--color-bg)",
-                      color: "var(--color-text)",
-                    }}
-                  />
+              {(["general", "profile", "security"] as SettingsTab[]).map(
+                (tab) => (
                   <button
+                    key={tab}
                     type="button"
-                    disabled={!editUsername || editUsername === username}
-                    onClick={handleUpdateUsername}
-                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
+                    onClick={() => setActiveTab(tab)}
+                    className="flex-1 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer border-none relative"
                     style={{
-                      backgroundColor:
-                        editUsername && editUsername !== username
-                          ? "var(--color-accent)"
-                          : "var(--color-surface-hover)",
+                      background: "none",
                       color:
-                        editUsername && editUsername !== username
-                          ? "white"
+                        activeTab === tab
+                          ? "var(--color-accent)"
                           : "var(--color-text-muted)",
                     }}
                   >
-                    Save
+                    {tab}
+                    {activeTab === tab && (
+                      <div
+                        className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full"
+                        style={{ backgroundColor: "var(--color-accent)" }}
+                      />
+                    )}
                   </button>
-                </div>
-              </div>
-              {email && (
-                <div>
-                  <label
-                    className="block text-xs mb-1"
-                    style={{ color: "var(--color-text-muted)" }}
-                  >
-                    Email
-                  </label>
-                  <div
-                    className="p-2 rounded text-sm"
-                    style={{
-                      backgroundColor: "var(--color-bg)",
-                      color: "var(--color-text-muted)",
-                    }}
-                  >
-                    {email}
-                  </div>
-                </div>
+                ),
               )}
             </div>
-          </section>
-
-          {/* Theme */}
-          <section>
-            <label
-              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Theme
-            </label>
-            <div className="flex gap-2">
-              {THEMES.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => update({ theme: value })}
-                  className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg cursor-pointer border-2 transition-colors"
-                  style={{
-                    backgroundColor:
-                      settings.theme === value
-                        ? "var(--color-surface-hover)"
-                        : "var(--color-bg)",
-                    borderColor:
-                      settings.theme === value
-                        ? "var(--color-accent)"
-                        : "var(--color-border)",
-                    color:
-                      settings.theme === value
-                        ? "var(--color-accent)"
-                        : "var(--color-text-muted)",
-                    minHeight: 44,
-                  }}
-                >
-                  <Icon size={18} />
-                  <span className="text-xs">{label}</span>
-                </button>
-              ))}
+            <div className="px-6 py-5 space-y-6">
+              {activeTab === "general" && generalSection}
+              {activeTab === "profile" && profileSection}
+              {activeTab === "security" && securitySection}
             </div>
-          </section>
-
-          {/* Navigation style */}
-          <section>
-            <label
-              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"              style={{ color: "var(--color-text-muted)" }}
-            >
-              Navigation
-            </label>
-            <div className="space-y-2">
-              {NAV_STYLES.map(({ value, label, desc }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => update({ navStyle: value })}
-                  className="flex items-center justify-between w-full px-4 py-3 rounded-lg cursor-pointer border-2 text-left transition-colors"
-                  style={{
-                    backgroundColor:
-                      settings.navStyle === value
-                        ? "var(--color-surface-hover)"
-                        : "var(--color-bg)",
-                    borderColor:
-                      settings.navStyle === value
-                        ? "var(--color-accent)"
-                        : "var(--color-border)",
-                    color: "var(--color-text)",
-                    minHeight: 44,
-                  }}
-                >
-                  <div>
-                    <div className="text-sm font-medium">{label}</div>
-                    <div
-                      className="text-xs"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      {desc}
-                    </div>
-                  </div>
-                  {settings.navStyle === value && (
-                    <span style={{ color: "var(--color-accent)" }}>✓</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Toggles */}
-          <section className="space-y-3">
-            <ToggleRow
-              label="Swipe gestures"
-              description="Swipe right to complete tasks"
-              checked={settings.swipeGestures}
-              onChange={(v) => update({ swipeGestures: v })}
-            />
-            <ToggleRow
-              label="Compact cards"
-              description="Smaller task cards"
-              checked={settings.compactCards}
-              onChange={(v) => update({ compactCards: v })}
-            />
-          </section>
-
-          {/* Encryption Key */}
-          <section>
-            <label
-              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Encryption Key
-            </label>
-            <div className="space-y-3">
-              {encryptionKey ? (
-                <div className="flex items-center gap-2">
-                  <div
-                    className="flex-1 p-2 rounded text-xs font-mono truncate"
-                    style={{
-                      backgroundColor: "var(--color-bg)",
-                      color: "var(--color-text-muted)",
-                    }}
-                  >
-                    {showKey
-                      ? encryptionKey
-                      : "••••••••••••••••••••••••"}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowKey(!showKey)}
-                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-                    style={{
-                      backgroundColor: "var(--color-surface-hover)",
-                      color: "var(--color-text)",
-                    }}
-                  >
-                    {showKey ? "Hide" : "Show"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      encryptionKey &&
-                      navigator.clipboard.writeText(encryptionKey)
-                    }
-                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-                    style={{
-                      backgroundColor: "var(--color-surface-hover)",
-                      color: "var(--color-text)",
-                    }}
-                  >
-                    Copy
-                  </button>
-                </div>
-              ) : (
-                <p
-                  className="text-xs"
-                  style={{ color: "var(--color-text-muted)" }}
-                >
-                  No encryption key set. Import one to access encrypted data.
-                </p>
-              )}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowImport(!showImport)}
-                  className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-                  style={{
-                    backgroundColor: "var(--color-accent)",
-                    color: "white",
-                  }}
-                >
-                  Import Key
-                </button>
-                {encryptionKey && (
-                  <button
-                    type="button"
-                    onClick={() => setShowReset(true)}
-                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-                    style={{
-                      backgroundColor: "var(--color-error)",
-                      color: "white",
-                    }}
-                  >
-                    Reset Key
-                  </button>
-                )}
-              </div>
-              {showImport && (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    placeholder="Paste encryption key..."
-                    value={importKey}
-                    onChange={(e) => setImportKey(e.target.value)}
-                    className="w-full p-2 rounded text-xs font-mono border-none outline-none"
-                    style={{
-                      backgroundColor: "var(--color-bg)",
-                      color: "var(--color-text)",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={!importKey}
-                    onClick={() => {
-                      onKeyImport?.(importKey);
-                      setShowImport(false);
-                      setImportKey("");
-                    }}
-                    className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-                    style={{
-                      backgroundColor: importKey
-                        ? "var(--color-success)"
-                        : "var(--color-surface-hover)",
-                      color: "white",
-                    }}
-                  >
-                    Save Key
-                  </button>
-                </div>
-              )}
-              {showReset && (
-                <div
-                  className="p-3 rounded"
-                  style={{
-                    backgroundColor: "var(--color-bg)",
-                    border: "1px solid var(--color-error)",
-                  }}
-                >
-                  <p
-                    className="text-xs mb-2"
-                    style={{ color: "var(--color-error)" }}
-                  >
-                    ⚠️ This will delete all your encrypted data. This cannot be
-                    undone.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowReset(false)}
-                      className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-                      style={{
-                        backgroundColor: "var(--color-surface-hover)",
-                        color: "var(--color-text)",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onKeyReset?.();
-                        setShowReset(false);
-                      }}
-                      className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-                      style={{
-                        backgroundColor: "var(--color-error)",
-                        color: "white",
-                      }}
-                    >
-                      Reset Key & Delete Data
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
+          </>
+        ) : (
+          /* ── Desktop: scrollable panel with all sections ── */
+          <div
+            className="px-6 py-5 space-y-6 overflow-y-auto"
+            style={{ maxHeight: "80vh" }}
+          >
+            {profileSection}
+            {generalSection}
+            {securitySection}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -455,10 +504,7 @@ function ToggleRow({
         <div className="text-sm" style={{ color: "var(--color-text)" }}>
           {label}
         </div>
-        <div
-          className="text-xs"
-          style={{ color: "var(--color-text-muted)" }}
-        >
+        <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>
           {description}
         </div>
       </div>

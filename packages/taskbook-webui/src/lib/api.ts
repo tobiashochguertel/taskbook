@@ -101,12 +101,19 @@ export const api = {
     ),
 
   getEncryptionKeyStatus: (token: string) =>
-    request<EncryptionKeyStatusResponse>("/api/v1/me/encryption-key", {}, token),
+    request<EncryptionKeyStatusResponse>(
+      "/api/v1/me/encryption-key",
+      {},
+      token,
+    ),
 
   storeEncryptionKey: (token: string, encryptionKey: string) =>
     request<EncryptionKeyStatusResponse>(
       "/api/v1/me/encryption-key",
-      { method: "POST", body: JSON.stringify({ encryption_key: encryptionKey }) },
+      {
+        method: "POST",
+        body: JSON.stringify({ encryption_key: encryptionKey }),
+      },
       token,
     ),
 

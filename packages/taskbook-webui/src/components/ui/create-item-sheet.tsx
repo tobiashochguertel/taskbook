@@ -11,6 +11,7 @@ interface CreateItemSheetProps {
   onCreateNote: (description: string, board: string) => void;
   boards: string[];
   defaultBoard: string;
+  onAddBoard?: (name: string) => void;
 }
 
 export function CreateItemSheet({
@@ -20,11 +21,14 @@ export function CreateItemSheet({
   onCreateNote,
   boards,
   defaultBoard,
+  onAddBoard,
 }: CreateItemSheetProps) {
   const [type, setType] = useState<ItemType>("task");
   const [description, setDescription] = useState("");
   const [board, setBoard] = useState(defaultBoard);
   const [priority, setPriority] = useState(1);
+  const [showNewBoard, setShowNewBoard] = useState(false);
+  const [newBoardName, setNewBoardName] = useState("");
 
   const reset = useCallback(() => {
     setDescription("");
@@ -45,7 +49,16 @@ export function CreateItemSheet({
 
     reset();
     onClose();
-  }, [type, description, board, priority, onCreateTask, onCreateNote, reset, onClose]);
+  }, [
+    type,
+    description,
+    board,
+    priority,
+    onCreateTask,
+    onCreateNote,
+    reset,
+    onClose,
+  ]);
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Create new item">
@@ -76,7 +89,9 @@ export function CreateItemSheet({
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder={type === "task" ? "What needs to be done?" : "Add a note..."}
+          placeholder={
+            type === "task" ? "What needs to be done?" : "Add a note..."
+          }
           className="w-full px-3 py-3 rounded-lg text-sm border outline-none resize-none"
           style={{
             backgroundColor: "var(--color-bg)",
@@ -127,6 +142,58 @@ export function CreateItemSheet({
               @{b}
             </button>
           ))}
+          {onAddBoard &&
+            (showNewBoard ? (
+              <input
+                type="text"
+                value={newBoardName}
+                onChange={(e) => setNewBoardName(e.target.value)}
+                placeholder="Board name..."
+                className="px-3 py-2 rounded-lg text-xs border-2 outline-none"
+                style={{
+                  backgroundColor: "var(--color-bg)",
+                  borderColor: "var(--color-accent)",
+                  color: "var(--color-text)",
+                  minHeight: 44,
+                  width: 120,
+                }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newBoardName.trim()) {
+                    onAddBoard(newBoardName.trim());
+                    setBoard(newBoardName.trim());
+                    setNewBoardName("");
+                    setShowNewBoard(false);
+                  }
+                  if (e.key === "Escape") {
+                    setShowNewBoard(false);
+                    setNewBoardName("");
+                  }
+                }}
+                onBlur={() => {
+                  if (newBoardName.trim()) {
+                    onAddBoard(newBoardName.trim());
+                    setBoard(newBoardName.trim());
+                  }
+                  setNewBoardName("");
+                  setShowNewBoard(false);
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowNewBoard(true)}
+                className="px-3 py-2 rounded-lg text-xs cursor-pointer border-2 border-dashed transition-colors"
+                style={{
+                  backgroundColor: "var(--color-bg)",
+                  borderColor: "var(--color-border)",
+                  color: "var(--color-text-muted)",
+                  minHeight: 44,
+                }}
+              >
+                + New
+              </button>
+            ))}
         </div>
       </div>
 

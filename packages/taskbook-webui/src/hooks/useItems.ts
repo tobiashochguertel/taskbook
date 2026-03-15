@@ -91,6 +91,59 @@ export function useItems() {
   };
 }
 
+export function useArchive() {
+  const { token, encryptionKey } = useAuth();
+  const queryClient = useQueryClient();
+
+  const rawQuery = useQuery({
+    queryKey: ["archive-raw"],
+    queryFn: () => api.getArchive(token as string),
+    enabled: !!token,
+    staleTime: 30_000,
+  });
+
+  const [archiveItems, setArchiveItems] = useState<Record<string, StorageItem>>(
+    {},
+  );
+  const [decrypting, setDecrypting] = useState(false);
+
+  useEffect(() => {
+    if (rawQuery.data?.items) {
+      setDecrypting(true);
+      decryptItems(rawQuery.data.items, encryptionKey).then((decrypted) => {
+        setArchiveItems(decrypted);
+        setDecrypting(false);
+      });
+    }
+  }, [rawQuery.data, encryptionKey]);
+
+  const archiveList = useMemo(
+    () => Object.values(archiveItems),
+    [archiveItems],
+  );
+
+  const updateMutation = useMutation({
+    mutationFn: async (updatedItems: Record<string, StorageItem>) => {
+      if (!token || !encryptionKey) throw new Error("Not authenticated");
+      const encrypted: ItemsMap = {};
+      for (const [id, item] of Object.entries(updatedItems)) {
+        encrypted[id] = await encryptItem(item, encryptionKey);
+      }
+      return api.putArchive(token, encrypted);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["archive-raw"] });
+    },
+  });
+
+  return {
+    archiveItems,
+    archiveList,
+    updateArchive: updateMutation.mutate,
+    isArchiveLoading: rawQuery.isLoading || decrypting,
+  };
+}
+
 export function useEventSync() {
   const { token } = useAuth();
   const queryClient = useQueryClient();

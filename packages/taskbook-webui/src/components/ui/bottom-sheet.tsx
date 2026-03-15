@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 interface BottomSheetProps {
   open: boolean;
@@ -87,9 +93,7 @@ export function BottomSheet({
             ? "translateY(100%)"
             : `translateY(${dragOffset}px)`,
           transition:
-            dragOffset === 0 || isClosing
-              ? "transform 0.2s ease-out"
-              : "none",
+            dragOffset === 0 || isClosing ? "transform 0.2s ease-out" : "none",
           maxHeight: "85vh",
           display: "flex",
           flexDirection: "column",
