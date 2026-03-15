@@ -2,12 +2,12 @@
 # API requests to the taskbook-server backend.
 # Much faster rebuild cycle vs the embedded (rust-embed) approach.
 
-FROM node:22-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 COPY packages/taskbook-webui/package.json packages/taskbook-webui/bun.lock ./
-RUN npm ci --ignore-scripts
+RUN bun install --frozen-lockfile
 COPY packages/taskbook-webui/ .
-RUN npm run build
+RUN bun run build
 
 FROM caddy:2-alpine
 COPY --from=builder /app/dist /srv
