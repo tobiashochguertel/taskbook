@@ -121,6 +121,7 @@ pub async fn build(
     let cors = build_cors_layer(cors_origins);
 
     let main_routes = Router::new()
+        .route("/", get(health::root_info))
         .route("/api/v1/health", get(health::health))
         .route("/api/v1/register", post(user::register))
         .route("/api/v1/login", post(user::login))

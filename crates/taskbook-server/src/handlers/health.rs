@@ -1,9 +1,19 @@
 use axum::extract::State;
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::{json, Value};
 
 use crate::router::AppState;
+
+pub async fn root_info() -> impl IntoResponse {
+    axum::Json(serde_json::json!({
+        "service": "taskbook-server",
+        "oidc_login": "/auth/oidc/login",
+        "api": "/api/v1/",
+        "health": "/api/v1/health"
+    }))
+}
 
 #[tracing::instrument(skip(state))]
 pub async fn health(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
