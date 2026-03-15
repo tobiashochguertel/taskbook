@@ -5,14 +5,16 @@ use axum::{
 };
 use axum_oidc::{EmptyAdditionalClaims, OidcAccessToken, OidcClaims};
 use base64::Engine;
+use tower_sessions::Session;
 use uuid::Uuid;
 
 use crate::error::{Result, ServerError};
 use crate::handlers::user::create_session;
-use crate::router::{AppState, SpaRedirectUri};
+use crate::router::{AppState, SpaRedirectUri, SPA_REDIRECT_SESSION_KEY};
 
 pub async fn login(
     State(state): State<AppState>,
+    session: Session,
     spa_redirect: Option<Extension<SpaRedirectUri>>,
     claims: OidcClaims<EmptyAdditionalClaims>,
     OidcAccessToken(access_token): OidcAccessToken,
@@ -42,9 +44,22 @@ pub async fn login(
 
     let token = create_session(&state.pool, user_id, state.session_expiry_days).await?;
 
-    // If a valid redirect_uri was provided (extracted by strip_oidc_provider_params
-    // middleware and stored as a request extension), redirect with token in fragment.
-    if let Some(Extension(SpaRedirectUri(redirect_uri))) = spa_redirect {
+    // Try to get redirect_uri: first from request extension (same request),
+    // then from session (survives the OIDC round-trip to the identity provider).
+    let redirect_uri: Option<String> = if let Some(Extension(SpaRedirectUri(uri))) = spa_redirect {
+        Some(uri)
+    } else {
+        session
+            .get::<String>(SPA_REDIRECT_SESSION_KEY)
+            .await
+            .ok()
+            .flatten()
+    };
+
+    // Clean up the session key after reading it.
+    let _ = session.remove::<String>(SPA_REDIRECT_SESSION_KEY).await;
+
+    if let Some(redirect_uri) = redirect_uri {
         if is_allowed_redirect(&redirect_uri, &state.allowed_redirects) {
             let mut target = redirect_uri.clone();
             target.push_str("#token=");
@@ -58,10 +73,6 @@ pub async fn login(
             }
             return Ok(Redirect::to(&target).into_response());
         }
-        return Err(ServerError::Validation(format!(
-            "redirect_uri '{}' is not in the allowed list",
-            redirect_uri
-        )));
     }
 
     Ok(Html(render_token_page(

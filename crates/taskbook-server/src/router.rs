@@ -24,13 +24,16 @@ use crate::rate_limit::RateLimiter;
 /// echoes back `scope`, which would otherwise end up in the redirect_uri causing
 /// a mismatch between the authorization request and the token exchange.
 ///
-/// Also strips the SPA's `redirect_uri` query param and stores it as a request
-/// extension so the login handler can still read it. Without this, axum-oidc
-/// includes the full query string (including `redirect_uri=...`) in the OIDC
-/// authorization redirect_uri sent to Authelia, causing a mismatch with the
-/// pre-registered redirect_uris.
+/// Also strips the SPA's `redirect_uri` query param and persists it in the
+/// tower-session so it survives the OIDC round-trip to the identity provider.
+/// Without this, axum-oidc includes the full query string (including
+/// `redirect_uri=...`) in the OIDC authorization redirect_uri sent to Authelia,
+/// causing a mismatch with the pre-registered redirect_uris.
 #[derive(Clone, Debug)]
 pub struct SpaRedirectUri(pub String);
+
+/// Session key for storing the SPA redirect_uri across the OIDC round-trip.
+pub const SPA_REDIRECT_SESSION_KEY: &str = "spa_redirect_uri";
 
 async fn strip_oidc_provider_params(
     mut req: axum::extract::Request,
@@ -57,8 +60,13 @@ async fn strip_oidc_provider_params(
                 })
                 .collect::<Vec<_>>()
                 .join("&");
-            if let Some(redir) = spa_redirect {
-                req.extensions_mut().insert(SpaRedirectUri(redir));
+            if let Some(ref redir) = spa_redirect {
+                // Store in session so it survives the OIDC redirect round-trip.
+                if let Some(session) = req.extensions().get::<tower_sessions::Session>() {
+                    let _ = session.insert(SPA_REDIRECT_SESSION_KEY, redir.clone()).await;
+                }
+                req.extensions_mut()
+                    .insert(SpaRedirectUri(redir.clone()));
             }
             if new_q.len() != q.len() {
                 let new_pq_str = if new_q.is_empty() {
