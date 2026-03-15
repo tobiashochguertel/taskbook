@@ -23,6 +23,15 @@ use crate::rate_limit::RateLimiter;
 /// only removes `code`, `state`, `session_state`, and `iss` — Authelia also
 /// echoes back `scope`, which would otherwise end up in the redirect_uri causing
 /// a mismatch between the authorization request and the token exchange.
+///
+/// Also strips the SPA's `redirect_uri` query param and stores it as a request
+/// extension so the login handler can still read it. Without this, axum-oidc
+/// includes the full query string (including `redirect_uri=...`) in the OIDC
+/// authorization redirect_uri sent to Authelia, causing a mismatch with the
+/// pre-registered redirect_uris.
+#[derive(Clone, Debug)]
+pub struct SpaRedirectUri(pub String);
+
 async fn strip_oidc_provider_params(
     mut req: axum::extract::Request,
     next: axum::middleware::Next,
@@ -30,12 +39,27 @@ async fn strip_oidc_provider_params(
     let uri = req.uri().clone();
     if let Some(pq) = uri.path_and_query() {
         if let Some(q) = pq.query() {
-            // Filter out 'scope' (echoed by Authelia) — the OIDC layers handle scopes themselves
+            let mut spa_redirect: Option<String> = None;
             let new_q: String = q
                 .split('&')
-                .filter(|p| !p.starts_with("scope="))
+                .filter(|p| {
+                    if p.starts_with("scope=") {
+                        return false;
+                    }
+                    if p.starts_with("redirect_uri=") {
+                        if let Some(val) = p.strip_prefix("redirect_uri=") {
+                            spa_redirect =
+                                Some(urlencoding::decode(val).unwrap_or_default().into_owned());
+                        }
+                        return false;
+                    }
+                    true
+                })
                 .collect::<Vec<_>>()
                 .join("&");
+            if let Some(redir) = spa_redirect {
+                req.extensions_mut().insert(SpaRedirectUri(redir));
+            }
             if new_q.len() != q.len() {
                 let new_pq_str = if new_q.is_empty() {
                     pq.path().to_string()

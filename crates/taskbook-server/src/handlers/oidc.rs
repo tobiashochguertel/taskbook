@@ -1,26 +1,19 @@
 use axum::{
-    extract::{Query, State},
+    extract::State,
     response::{Html, IntoResponse, Redirect},
+    Extension,
 };
 use axum_oidc::{EmptyAdditionalClaims, OidcAccessToken, OidcClaims};
 use base64::Engine;
-use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::error::{Result, ServerError};
 use crate::handlers::user::create_session;
-use crate::router::AppState;
-
-#[derive(Deserialize, Default)]
-pub struct LoginQuery {
-    /// Post-login redirect URI for SPA clients.
-    /// Must match one of the configured `TB_OIDC_ALLOWED_REDIRECTS`.
-    pub redirect_uri: Option<String>,
-}
+use crate::router::{AppState, SpaRedirectUri};
 
 pub async fn login(
     State(state): State<AppState>,
-    Query(query): Query<LoginQuery>,
+    spa_redirect: Option<Extension<SpaRedirectUri>>,
     claims: OidcClaims<EmptyAdditionalClaims>,
     OidcAccessToken(access_token): OidcAccessToken,
 ) -> Result<impl IntoResponse> {
@@ -49,9 +42,10 @@ pub async fn login(
 
     let token = create_session(&state.pool, user_id, state.session_expiry_days).await?;
 
-    // If a valid redirect_uri was provided, redirect to it with the token in the fragment.
-    if let Some(redirect_uri) = &query.redirect_uri {
-        if is_allowed_redirect(redirect_uri, &state.allowed_redirects) {
+    // If a valid redirect_uri was provided (extracted by strip_oidc_provider_params
+    // middleware and stored as a request extension), redirect with token in fragment.
+    if let Some(Extension(SpaRedirectUri(redirect_uri))) = spa_redirect {
+        if is_allowed_redirect(&redirect_uri, &state.allowed_redirects) {
             let mut target = redirect_uri.clone();
             target.push_str("#token=");
             target.push_str(&token);
