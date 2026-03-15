@@ -221,6 +221,39 @@ impl ApiClient {
         }
     }
 
+    pub fn delete_path(&self, path: &str) -> Result<()> {
+        let auth = self.auth_header()?;
+        let resp = self
+            .client
+            .delete(self.url(path))
+            .header("Authorization", &auth)
+            .send()
+            .map_err(|e| TaskbookError::Network(e.to_string()))?;
+
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(Self::error_from_response(resp, "delete request failed"))
+        }
+    }
+
+    pub fn post_json(&self, path: &str, body: &serde_json::Value) -> Result<()> {
+        let auth = self.auth_header()?;
+        let resp = self
+            .client
+            .post(self.url(path))
+            .header("Authorization", &auth)
+            .json(body)
+            .send()
+            .map_err(|e| TaskbookError::Network(e.to_string()))?;
+
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(Self::error_from_response(resp, "post request failed"))
+        }
+    }
+
     pub fn put_archive(&self, items: &HashMap<String, EncryptedItemData>) -> Result<()> {
         let auth = self.auth_header()?;
         let req = PutItemsRequest {

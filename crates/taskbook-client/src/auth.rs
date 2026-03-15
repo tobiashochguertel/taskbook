@@ -259,12 +259,14 @@ pub fn login_sso(server_url: Option<&str>, encryption_key: Option<&str>) -> Resu
     };
     creds.save()?;
 
-    // Enable sync
-    let mut sync_cfg = Config::load_or_default();
-    sync_cfg.enable_sync(&server)?;
-
-    // Verify
+    // Store key hash on server for cross-device sync indication
     let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    let _ = client.post_json(
+        "/api/v1/me/encryption-key",
+        &serde_json::json!({"encryption_key": &creds.encryption_key}),
+    );
+
+    // Enable sync
     match client.get_me() {
         Ok(me) => {
             println!(
@@ -446,6 +448,88 @@ pub fn status() -> Result<()> {
             }
         }
     }
+
+    // Show encryption key status
+    if let Some(ref creds) =
+        Credentials::load()?.filter(|c| c.server_url == config.sync.server_url)
+    {
+        if !creds.encryption_key.is_empty() {
+            println!("Encryption:  {}", "configured".green());
+        } else {
+            println!("Encryption:  {}", "not set".yellow());
+            println!(
+                "{}",
+                "Hint: encryption key is required for data sync.".dimmed()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Reset encryption key — generates a new one and clears server data.
+pub fn reset_encryption_key() -> Result<()> {
+    println!("{}", "Reset Encryption Key".bold());
+    println!();
+    println!("{}", "⚠️  WARNING: This will:".red().bold());
+    println!("  • Generate a new encryption key");
+    println!("  • Delete ALL your encrypted data on the server");
+    println!("  • This action CANNOT be undone");
+    println!();
+
+    let confirm = prompt("Type 'RESET' to confirm: ")?;
+    if confirm.trim() != "RESET" {
+        println!("Cancelled.");
+        return Ok(());
+    }
+
+    let mut creds = Credentials::load()?.ok_or_else(|| {
+        TaskbookError::Auth("not logged in — run `tb --login-sso` first".to_string())
+    })?;
+
+    // Call server to reset
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    match client.delete_path("/api/v1/me/encryption-key") {
+        Ok(_) => println!("{}", "Server data cleared.".green()),
+        Err(e) => println!(
+            "{}",
+            format!("Warning: could not clear server data: {}", e).yellow()
+        ),
+    }
+
+    // Generate new key
+    let raw_key = taskbook_common::encryption::generate_key();
+    let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+
+    println!();
+    println!(
+        "{}",
+        "New encryption key (save this — it cannot be recovered):".yellow()
+    );
+    println!("  {}", key_b64.bright_white().bold());
+    println!();
+
+    creds.encryption_key = key_b64;
+    creds.save()?;
+
+    // Store key hash on server
+    match client.post_json(
+        "/api/v1/me/encryption-key",
+        &serde_json::json!({"encryption_key": &creds.encryption_key}),
+    ) {
+        Ok(_) => {}
+        Err(e) => println!(
+            "{}",
+            format!("Warning: could not store key hash: {}", e).yellow()
+        ),
+    }
+
+    println!(
+        "{}",
+        "✅ Encryption key reset. Your previous data is gone."
+            .green()
+            .bold()
+    );
 
     Ok(())
 }

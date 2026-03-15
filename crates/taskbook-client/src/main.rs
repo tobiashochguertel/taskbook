@@ -79,6 +79,7 @@ const HELP_TEXT: &str = r#"
       --login-sso        Log in via browser SSO (OIDC) — opens browser automatically
       --logout           Log out and delete credentials
       --status           Show sync status
+      --reset-encryption-key  Reset encryption key (WARNING: deletes all data)
       --migrate          Push local data to server
       --set-token        Save a session token (from OIDC login) directly
 
@@ -259,6 +260,10 @@ struct Cli {
     /// Encryption key (base64) for login
     #[arg(long)]
     key: Option<String>,
+
+    /// Reset encryption key (WARNING: deletes all encrypted data)
+    #[arg(long)]
+    reset_encryption_key: bool,
 }
 
 fn main() {
@@ -322,6 +327,14 @@ fn main() {
 
     if cli.status {
         if let Err(e) = auth::status() {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        return;
+    }
+
+    if cli.reset_encryption_key {
+        if let Err(e) = auth::reset_encryption_key() {
             eprintln!("Error: {}", e);
             process::exit(1);
         }
