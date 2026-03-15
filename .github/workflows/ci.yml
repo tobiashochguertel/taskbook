@@ -32,11 +32,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Build WebUI
-        run: cd packages/taskbook-webui && bun install --frozen-lockfile && bun run build
+      - name: Create empty WebUI dist (rust-embed needs the dir)
+        run: mkdir -p packages/taskbook-webui/dist && touch packages/taskbook-webui/dist/.gitkeep
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -54,11 +51,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Build WebUI
-        run: cd packages/taskbook-webui && bun install --frozen-lockfile && bun run build
+      - name: Create empty WebUI dist (rust-embed needs the dir)
+        run: mkdir -p packages/taskbook-webui/dist && touch packages/taskbook-webui/dist/.gitkeep
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
