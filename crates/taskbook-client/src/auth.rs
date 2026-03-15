@@ -7,6 +7,7 @@ use crate::api_client::{ApiClient, LoginRequest, RegisterRequest};
 use crate::config::Config;
 use crate::credentials::Credentials;
 use crate::error::{Result, TaskbookError};
+use crate::sso;
 
 fn prompt(message: &str) -> Result<String> {
     print!("{}", message);
@@ -129,9 +130,32 @@ pub fn login(
         None => prompt("Server URL: ")?,
     };
 
-    let key = match encryption_key {
-        Some(k) => k.to_string(),
-        None => prompt("Encryption key: ")?,
+    let key = if let Some(k) = encryption_key {
+        k.to_string()
+    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
+        println!(
+            "{}",
+            "Reusing existing encryption key from previous login.".dimmed()
+        );
+        existing.encryption_key
+    } else {
+        prompt("Encryption key (leave blank to generate new): ")
+            .map(|s| {
+                if s.is_empty() {
+                    let raw_key = taskbook_common::encryption::generate_key();
+                    let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+                    println!(
+                        "{}",
+                        "Generated new encryption key (save this — it cannot be recovered):"
+                            .yellow()
+                    );
+                    println!("  {}", key_b64.bright_white().bold());
+                    println!();
+                    key_b64
+                } else {
+                    s
+                }
+            })?
     };
 
     let final_token = if let Some(t) = token {
@@ -176,6 +200,91 @@ pub fn login(
     Ok(())
 }
 
+/// Log in via browser-based OIDC/SSO.
+///
+/// Opens the user's browser for authentication. Falls back to printing
+/// a URL for headless/SSH environments.
+pub fn login_sso(server_url: Option<&str>, encryption_key: Option<&str>) -> Result<()> {
+    println!("{}", "SSO Login".bold());
+    println!();
+
+    let config = Config::load_or_default();
+    let server = match server_url {
+        Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
+        None => prompt("Server URL: ")?,
+    };
+
+    let result = sso::run_sso_flow(&server)?;
+
+    // Determine encryption key:
+    // 1. Provided in callback (new OIDC user) — use it
+    // 2. Provided via --key flag — use it
+    // 3. Existing credentials have one — reuse it
+    // 4. Otherwise — generate a new one
+    let key = if let Some(key) = result.encryption_key {
+        if result.is_new_user {
+            println!();
+            println!(
+                "{}",
+                "⚠️  Save your encryption key — it will NOT be shown again:".yellow()
+            );
+            println!("  {}", key.bright_white().bold());
+            println!();
+        }
+        key
+    } else if let Some(k) = encryption_key {
+        k.to_string()
+    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
+        existing.encryption_key
+    } else {
+        // Generate a new encryption key for the user
+        let raw_key = taskbook_common::encryption::generate_key();
+        let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+        println!();
+        println!(
+            "{}",
+            "Generated new encryption key (save this — it cannot be recovered):".yellow()
+        );
+        println!("  {}", key_b64.bright_white().bold());
+        println!();
+        key_b64
+    };
+
+    let creds = Credentials {
+        server_url: server.clone(),
+        token: result.token,
+        encryption_key: key,
+    };
+    creds.save()?;
+
+    // Enable sync
+    let mut sync_cfg = Config::load_or_default();
+    sync_cfg.enable_sync(&server)?;
+
+    // Verify
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    match client.get_me() {
+        Ok(me) => {
+            println!(
+                "{}",
+                format!("✅ Logged in as {} ({})", me.username, me.email)
+                    .green()
+                    .bold()
+            );
+        }
+        Err(_) => {
+            println!("{}", "✅ Token saved.".green().bold());
+        }
+    }
+    println!("{}", "Sync is now enabled.".green());
+
+    Ok(())
+}
+
 /// Save a session token directly (non-interactive).
 ///
 /// Designed for OIDC login workflows where the user obtains a token from the
@@ -200,9 +309,23 @@ pub fn set_token(
         None => prompt("Session token: ")?,
     };
 
-    let key = match encryption_key {
-        Some(k) => k.to_string(),
-        None => prompt("Encryption key: ")?,
+    let key = if let Some(k) = encryption_key {
+        k.to_string()
+    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
+        println!("{}", "Reusing existing encryption key.".dimmed());
+        existing.encryption_key
+    } else {
+        let raw_key = taskbook_common::encryption::generate_key();
+        let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+        println!();
+        println!(
+            "{}",
+            "Generated new encryption key (save this — it cannot be recovered):"
+                .yellow()
+        );
+        println!("  {}", key_b64.bright_white().bold());
+        println!();
+        key_b64
     };
 
     let creds = Credentials {
@@ -307,7 +430,7 @@ pub fn status() -> Result<()> {
                         println!();
                         println!(
                             "{}",
-                            "To fix: run `tb --login` or `tb --set-token` to re-authenticate."
+                            "To fix: run `tb --login-sso` (browser SSO) or `tb --set-token` to re-authenticate."
                                 .yellow()
                         );
                     }
@@ -320,7 +443,7 @@ pub fn status() -> Result<()> {
                 println!();
                 println!(
                     "{}",
-                    "To authenticate: run `tb --login` or `tb --set-token`.".yellow()
+                    "To authenticate: run `tb --login-sso` (browser SSO) or `tb --set-token`.".yellow()
                 );
             }
         }
