@@ -353,6 +353,82 @@ else
 fi
 
 # ============================================================================
+section "T5/T6 — Token Import & Token-Only Login (CLI)"
+# ============================================================================
+
+# These tests use the REST API token obtained from registration above.
+# They verify the --set-token and --login --token CLI flags work correctly.
+
+if [ -n "${LOGIN_TOKEN:-}" ] && command -v tb &>/dev/null; then
+  # Backup existing credentials if any
+  CRED_FILE="$HOME/.taskbook/credentials.json"
+  CRED_BACKUP=""
+  if [ -f "$CRED_FILE" ]; then
+    CRED_BACKUP=$(cat "$CRED_FILE")
+  fi
+
+  # AC-T5-1: tb --set-token saves credentials without prompting
+  TB_OUT=$(tb --set-token --server "${SERVER}" --token "${LOGIN_TOKEN}" --key "dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleTEy" 2>&1 || true)
+  if [ -f "$CRED_FILE" ]; then
+    SAVED_TOKEN=$(grep -o '"token":"[^"]*"' "$CRED_FILE" | head -1 | cut -d'"' -f4)
+    if [ "$SAVED_TOKEN" = "$LOGIN_TOKEN" ]; then
+      pass "AC-T5-1: --set-token saves token to credentials file"
+    else
+      fail "AC-T5-1: saved token mismatch (expected ${LOGIN_TOKEN:0:8}…, got ${SAVED_TOKEN:0:8}…)"
+    fi
+  else
+    fail "AC-T5-1: credentials file not created"
+  fi
+
+  # AC-T5-2: After set-token, check that tb --status shows sync enabled
+  STATUS_OUT=$(tb --status 2>&1 || true)
+  if echo "$STATUS_OUT" | grep -qi "remote\|enabled\|sync"; then
+    pass "AC-T5-2: tb --status shows sync enabled after --set-token"
+  else
+    fail "AC-T5-2: tb --status output: $STATUS_OUT"
+  fi
+
+  # Clean up for next test
+  rm -f "$CRED_FILE"
+
+  # AC-T6-1: tb --login --token saves credentials without password prompt
+  sleep "$AUTH_DELAY"
+  TB_LOGIN_OUT=$(tb --login --server "${SERVER}" --token "${LOGIN_TOKEN}" --key "dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleTEy" 2>&1 || true)
+  if [ -f "$CRED_FILE" ]; then
+    SAVED_TOKEN2=$(grep -o '"token":"[^"]*"' "$CRED_FILE" | head -1 | cut -d'"' -f4)
+    if [ "$SAVED_TOKEN2" = "$LOGIN_TOKEN" ]; then
+      pass "AC-T6-1: --login --token saves credentials"
+    else
+      fail "AC-T6-1: saved token mismatch"
+    fi
+  else
+    fail "AC-T6-1: credentials file not created"
+  fi
+
+  # AC-T6-2: The command did not prompt for password (non-interactive)
+  if echo "$TB_LOGIN_OUT" | grep -qi "password:"; then
+    fail "AC-T6-2: --login --token prompted for password"
+  else
+    pass "AC-T6-2: --login --token did not prompt for password"
+  fi
+
+  # Restore original credentials
+  if [ -n "$CRED_BACKUP" ]; then
+    mkdir -p "$(dirname "$CRED_FILE")"
+    echo "$CRED_BACKUP" > "$CRED_FILE"
+    chmod 600 "$CRED_FILE"
+  else
+    rm -f "$CRED_FILE"
+  fi
+else
+  if [ -z "${LOGIN_TOKEN:-}" ]; then
+    skip "AC-T5/T6: no login token available"
+  else
+    skip "AC-T5/T6: tb CLI not found in PATH"
+  fi
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo ""

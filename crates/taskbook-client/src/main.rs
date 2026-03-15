@@ -50,6 +50,7 @@ const HELP_TEXT: &str = r#"
       --logout           Log out and delete credentials
       --status           Show sync status
       --migrate          Push local data to server
+      --set-token        Save a session token (from OIDC login) directly
 
     Examples
       $ tb
@@ -76,6 +77,8 @@ const HELP_TEXT: &str = r#"
       $ tb --timeline
       $ tb --register --server http://localhost:8080 --username user --email a@b.com --password secret123
       $ tb --login --server http://localhost:8080 --username user --password secret123 --key <base64>
+      $ tb --login --server http://localhost:8080 --token <TOKEN> --key <base64>
+      $ tb --set-token --server http://localhost:8080 --token <TOKEN> --key <base64>
       $ tb --logout
       $ tb --status
       $ tb --migrate
@@ -194,6 +197,14 @@ struct Cli {
     #[arg(long)]
     migrate: bool,
 
+    /// Save a session token directly (e.g. from OIDC browser login)
+    #[arg(long)]
+    set_token: bool,
+
+    /// Session token value (for --set-token or --login without password)
+    #[arg(long)]
+    token: Option<String>,
+
     /// Server URL for register/login
     #[arg(long)]
     server: Option<String>,
@@ -237,6 +248,19 @@ fn main() {
             cli.server.as_deref(),
             cli.username.as_deref(),
             cli.password.as_deref(),
+            cli.key.as_deref(),
+            cli.token.as_deref(),
+        ) {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        return;
+    }
+
+    if cli.set_token {
+        if let Err(e) = auth::set_token(
+            cli.server.as_deref(),
+            cli.token.as_deref(),
             cli.key.as_deref(),
         ) {
             eprintln!("Error: {}", e);
