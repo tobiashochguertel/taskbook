@@ -125,32 +125,48 @@ async fn find_or_create_oidc_user(
 
     let username = find_unique_username(pool, preferred_username, email).await?;
 
-    let user_id: Uuid = sqlx::query_scalar(
-        "INSERT INTO users (username, email, password) VALUES ($1, $2, NULL) RETURNING id",
-    )
-    .bind(&username)
-    .bind(email)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| match e {
-        sqlx::Error::Database(ref db_err) if db_err.is_unique_violation() => {
-            ServerError::UserAlreadyExists
-        }
-        _ => ServerError::Database(e),
-    })?;
+    // Try to find an existing user by email first — this handles the case where a
+    // user registered via CLI (username/password) and now logs in via OIDC.
+    let existing_by_email: Option<Uuid> =
+        sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
+            .bind(email)
+            .fetch_optional(pool)
+            .await
+            .map_err(ServerError::Database)?;
 
-    sqlx::query("INSERT INTO oidc_identities (user_id, provider, subject) VALUES ($1, $2, $3)")
-        .bind(user_id)
-        .bind(provider)
-        .bind(subject)
-        .execute(pool)
+    let (user_id, is_new) = if let Some(uid) = existing_by_email {
+        (uid, false)
+    } else {
+        let uid: Uuid = sqlx::query_scalar(
+            "INSERT INTO users (username, email, password) VALUES ($1, $2, NULL) RETURNING id",
+        )
+        .bind(&username)
+        .bind(email)
+        .fetch_one(pool)
         .await
         .map_err(ServerError::Database)?;
+        (uid, true)
+    };
 
-    let raw_key = taskbook_common::encryption::generate_key();
-    let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+    // Link the OIDC identity to this user (new or existing).
+    sqlx::query(
+        "INSERT INTO oidc_identities (user_id, provider, subject) VALUES ($1, $2, $3) \
+         ON CONFLICT (provider, subject) DO NOTHING",
+    )
+    .bind(user_id)
+    .bind(provider)
+    .bind(subject)
+    .execute(pool)
+    .await
+    .map_err(ServerError::Database)?;
 
-    Ok((user_id, true, Some(key_b64)))
+    if is_new {
+        let raw_key = taskbook_common::encryption::generate_key();
+        let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+        Ok((user_id, true, Some(key_b64)))
+    } else {
+        Ok((user_id, false, None))
+    }
 }
 
 async fn find_unique_username(
