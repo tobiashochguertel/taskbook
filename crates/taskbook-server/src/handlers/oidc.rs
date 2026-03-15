@@ -70,18 +70,28 @@ pub async fn login(
         )));
     }
 
-    Ok(Html(render_token_page(&token, is_new_user, encryption_key.as_deref())).into_response())
+    Ok(Html(render_token_page(
+        &token,
+        is_new_user,
+        encryption_key.as_deref(),
+    ))
+    .into_response())
 }
 
 /// Check if a redirect URI is allowed by matching against configured prefixes.
 fn is_allowed_redirect(uri: &str, allowed: &[String]) -> bool {
-    allowed.iter().any(|allowed_prefix| uri.starts_with(allowed_prefix))
+    allowed
+        .iter()
+        .any(|allowed_prefix| uri.starts_with(allowed_prefix))
 }
 
 /// Fetch email from the OIDC userinfo endpoint using the access token.
 /// Authelia (and some other providers) do not embed email in the ID token
 /// but make it available via the userinfo endpoint.
-async fn fetch_email_from_userinfo(oidc_issuer: Option<&str>, access_token: &str) -> Option<String> {
+async fn fetch_email_from_userinfo(
+    oidc_issuer: Option<&str>,
+    access_token: &str,
+) -> Option<String> {
     let issuer = oidc_issuer?;
     // Derive userinfo URL from issuer — standard path per OpenID Connect spec
     let userinfo_url = format!("{}/api/oidc/userinfo", issuer.trim_end_matches('/'));
@@ -135,15 +145,13 @@ async fn find_or_create_oidc_user(
         _ => ServerError::Database(e),
     })?;
 
-    sqlx::query(
-        "INSERT INTO oidc_identities (user_id, provider, subject) VALUES ($1, $2, $3)",
-    )
-    .bind(user_id)
-    .bind(provider)
-    .bind(subject)
-    .execute(pool)
-    .await
-    .map_err(ServerError::Database)?;
+    sqlx::query("INSERT INTO oidc_identities (user_id, provider, subject) VALUES ($1, $2, $3)")
+        .bind(user_id)
+        .bind(provider)
+        .bind(subject)
+        .execute(pool)
+        .await
+        .map_err(ServerError::Database)?;
 
     let raw_key = taskbook_common::encryption::generate_key();
     let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);

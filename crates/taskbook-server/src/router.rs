@@ -127,8 +127,10 @@ pub async fn build(
 
     let cors = build_cors_layer(cors_origins);
 
-    let swagger_ui = utoipa_swagger_ui::SwaggerUi::new("/api/docs")
-        .url("/api/docs/openapi.json", <ApiDoc as utoipa::OpenApi>::openapi());
+    let swagger_ui = utoipa_swagger_ui::SwaggerUi::new("/api/docs").url(
+        "/api/docs/openapi.json",
+        <ApiDoc as utoipa::OpenApi>::openapi(),
+    );
 
     let main_routes = Router::new()
         .route("/", get(health::root_info))
@@ -151,8 +153,8 @@ pub async fn build(
 
     if let Some(cfg) = oidc_config {
         use axum::error_handling::HandleErrorLayer;
-        use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer, OidcLoginLayer};
         use axum_oidc::error::MiddlewareError;
+        use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer, OidcLoginLayer};
         use tower::ServiceBuilder;
         use tower_sessions::{MemoryStore, SessionManagerLayer};
 

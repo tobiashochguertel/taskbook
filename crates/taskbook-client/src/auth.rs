@@ -320,8 +320,7 @@ pub fn status() -> Result<()> {
                 println!();
                 println!(
                     "{}",
-                    "To authenticate: run `tb --login` or `tb --set-token`."
-                        .yellow()
+                    "To authenticate: run `tb --login` or `tb --set-token`.".yellow()
                 );
             }
         }

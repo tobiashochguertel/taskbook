@@ -25,7 +25,7 @@ fn version_long() -> &'static str {
     let repo = env!("TB_GIT_REPO");
     let date = env!("TB_BUILD_DATE");
 
-    let mut s = format!("{version}");
+    let mut s = version.to_string();
     if !hash.is_empty() {
         s.push_str(&format!(" ({hash}{dirty})"));
     }

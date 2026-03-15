@@ -121,13 +121,14 @@ pub async fn login(
         return Err(ServerError::RateLimited);
     }
 
-    let user =
-        sqlx::query_as::<_, (Uuid, Option<String>)>("SELECT id, password FROM users WHERE username = $1")
-            .bind(&req.username)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(ServerError::Database)?
-            .ok_or(ServerError::InvalidCredentials)?;
+    let user = sqlx::query_as::<_, (Uuid, Option<String>)>(
+        "SELECT id, password FROM users WHERE username = $1",
+    )
+    .bind(&req.username)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(ServerError::Database)?
+    .ok_or(ServerError::InvalidCredentials)?;
 
     let (user_id, password_hash) = user;
     let password_hash = password_hash.ok_or(ServerError::InvalidCredentials)?;
@@ -196,7 +197,11 @@ pub async fn me(State(state): State<AppState>, auth: AuthUser) -> Result<Json<Me
 }
 
 /// Generate a cryptographically random 256-bit session token.
-pub(crate) async fn create_session(pool: &PgPool, user_id: Uuid, expiry_days: i64) -> Result<String> {
+pub(crate) async fn create_session(
+    pool: &PgPool,
+    user_id: Uuid,
+    expiry_days: i64,
+) -> Result<String> {
     let mut token_bytes = [0u8; 32];
     rand::thread_rng().fill(&mut token_bytes);
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(token_bytes);
