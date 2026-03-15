@@ -35,8 +35,13 @@ pub fn register(
     println!("{}", "Register new account".bold());
     println!();
 
+    let mut config = Config::load_or_default();
     let server = match server_url {
         Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
         None => prompt("Server URL: ")?,
     };
 
@@ -82,8 +87,7 @@ pub fn register(
     };
     creds.save()?;
 
-    // Enable sync in config
-    let mut config = Config::load_or_default();
+    // Enable sync
     config.enable_sync(&server)?;
 
     println!();
@@ -115,8 +119,13 @@ pub fn login(
     println!("{}", "Login".bold());
     println!();
 
+    let config = Config::load_or_default();
     let server = match server_url {
         Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
         None => prompt("Server URL: ")?,
     };
 
@@ -156,9 +165,9 @@ pub fn login(
     };
     creds.save()?;
 
-    // Enable sync in config
-    let mut config = Config::load_or_default();
-    config.enable_sync(&server)?;
+    // Enable sync
+    let mut sync_cfg = Config::load_or_default();
+    sync_cfg.enable_sync(&server)?;
 
     println!();
     println!("{}", "Login successful!".green().bold());
@@ -176,8 +185,13 @@ pub fn set_token(
     token: Option<&str>,
     encryption_key: Option<&str>,
 ) -> Result<()> {
+    let config = Config::load_or_default();
     let server = match server_url {
         Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
         None => prompt("Server URL: ")?,
     };
 
@@ -198,9 +212,9 @@ pub fn set_token(
     };
     creds.save()?;
 
-    // Enable sync in config
-    let mut config = Config::load_or_default();
-    config.enable_sync(&server)?;
+    // Enable sync
+    let mut sync_cfg = Config::load_or_default();
+    sync_cfg.enable_sync(&server)?;
 
     // Verify the token works
     let client = ApiClient::new(&creds.server_url, Some(&creds.token));
@@ -260,10 +274,28 @@ pub fn status() -> Result<()> {
     match Credentials::load()? {
         Some(creds) => {
             println!("Credentials: {}", "saved".green());
-            println!("Server URL:  {}", creds.server_url);
+
+            // Warn if credentials were saved for a different server
+            if creds.server_url != config.sync.server_url && config.sync.enabled {
+                println!(
+                    "{}",
+                    format!(
+                        "Warning: credentials were saved for {} (config points to {})",
+                        creds.server_url, config.sync.server_url
+                    )
+                    .yellow()
+                );
+                println!(
+                    "{}",
+                    "Hint: run `tb --login` or `tb --set-token` to re-authenticate against the configured server."
+                        .dimmed()
+                );
+            }
 
             if config.sync.enabled {
-                let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+                // Use the config server URL (user's intent), not the stale credentials URL
+                let effective_url = &config.sync.server_url;
+                let client = ApiClient::new(effective_url, Some(&creds.token));
                 match client.get_me() {
                     Ok(me) => {
                         println!("Session:     {}", "valid".green());
@@ -272,12 +304,26 @@ pub fn status() -> Result<()> {
                     Err(e) => {
                         println!("Session:     {}", "invalid".red());
                         println!("Error:       {}", e);
+                        println!();
+                        println!(
+                            "{}",
+                            "To fix: run `tb --login` or `tb --set-token` to re-authenticate."
+                                .yellow()
+                        );
                     }
                 }
             }
         }
         None => {
             println!("Credentials: {}", "none".dimmed());
+            if config.sync.enabled {
+                println!();
+                println!(
+                    "{}",
+                    "To authenticate: run `tb --login` or `tb --set-token`."
+                        .yellow()
+                );
+            }
         }
     }
 
