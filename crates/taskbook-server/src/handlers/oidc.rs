@@ -1,5 +1,5 @@
 use axum::{extract::State, response::Html};
-use axum_oidc::{EmptyAdditionalClaims, OidcClaims};
+use axum_oidc::{EmptyAdditionalClaims, OidcAccessToken, OidcClaims};
 use base64::Engine;
 use uuid::Uuid;
 
@@ -10,9 +10,15 @@ use crate::router::AppState;
 pub async fn login(
     State(state): State<AppState>,
     claims: OidcClaims<EmptyAdditionalClaims>,
+    OidcAccessToken(access_token): OidcAccessToken,
 ) -> Result<Html<String>> {
     let subject = claims.subject().to_string();
-    let email = claims.email().map(|e| e.to_string());
+    // Try email from ID token first; fall back to userinfo endpoint (Authelia
+    // returns email claims via userinfo rather than embedding them in the ID token)
+    let email = match claims.email().map(|e| e.to_string()) {
+        Some(e) => Some(e),
+        None => fetch_email_from_userinfo(state.oidc_issuer.as_deref(), &access_token).await,
+    };
     let preferred_username = claims.preferred_username().map(|u| u.to_string());
 
     let provider = state
@@ -34,6 +40,23 @@ pub async fn login(
     let token = create_session(&state.pool, user_id, state.session_expiry_days).await?;
 
     Ok(Html(render_token_page(&token, is_new_user, encryption_key.as_deref())))
+}
+
+/// Fetch email from the OIDC userinfo endpoint using the access token.
+/// Authelia (and some other providers) do not embed email in the ID token
+/// but make it available via the userinfo endpoint.
+async fn fetch_email_from_userinfo(oidc_issuer: Option<&str>, access_token: &str) -> Option<String> {
+    let issuer = oidc_issuer?;
+    // Derive userinfo URL from issuer — standard path per OpenID Connect spec
+    let userinfo_url = format!("{}/api/oidc/userinfo", issuer.trim_end_matches('/'));
+    let resp = reqwest::Client::new()
+        .get(&userinfo_url)
+        .bearer_auth(access_token)
+        .send()
+        .await
+        .ok()?;
+    let json: serde_json::Value = resp.json().await.ok()?;
+    json["email"].as_str().map(|s| s.to_string())
 }
 
 async fn find_or_create_oidc_user(

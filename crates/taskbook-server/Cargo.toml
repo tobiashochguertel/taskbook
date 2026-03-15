@@ -26,6 +26,7 @@ metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 base64 = "0.22"
 axum-oidc = "0.5"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 tower-sessions = { version = "0.13", features = ["memory-store"] }
 url = "2"
 openidconnect = "3"
