@@ -1,0 +1,218 @@
+import {
+  Folder,
+  LogOut,
+  Menu,
+  Settings,
+  User,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+
+interface DrawerProps {
+  boards: string[];
+  currentBoard: string;
+  onSelectBoard: (board: string) => void;
+  onOpenSettings: () => void;
+  onLogout: () => void;
+  username?: string;
+}
+
+export function BurgerButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-center rounded-md cursor-pointer border-none"
+      style={{
+        color: "var(--color-text-muted)",
+        background: "none",
+        width: 44,
+        height: 44,
+      }}
+      aria-label="Open menu"
+    >
+      <Menu size={22} />
+    </button>
+  );
+}
+
+export function Drawer({
+  boards,
+  currentBoard,
+  onSelectBoard,
+  onOpenSettings,
+  onLogout,
+  username,
+}: DrawerProps) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open]);
+
+  return (
+    <>
+      <BurgerButton onClick={() => setOpen(true)} />
+
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          style={{ backgroundColor: "var(--color-backdrop)" }}
+          onClick={() => setOpen(false)}
+          onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+        >
+          <nav
+            className="fixed top-0 left-0 bottom-0 w-72 z-50 flex flex-col safe-top safe-bottom"
+            style={{
+              backgroundColor: "var(--color-surface)",
+              boxShadow: "4px 0 20px rgba(0,0,0,0.3)",
+              animation: "slideInLeft 0.2s ease-out",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b"
+              style={{ borderColor: "var(--color-border)" }}
+            >
+              <span
+                className="text-sm font-bold"
+                style={{ color: "var(--color-accent)" }}
+              >
+                ☰ Taskbook
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center cursor-pointer border-none rounded-md"
+                style={{
+                  color: "var(--color-text-muted)",
+                  background: "none",
+                  width: 44,
+                  height: 44,
+                }}
+                aria-label="Close menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* User info */}
+            {username && (
+              <div
+                className="flex items-center gap-3 px-4 py-3 border-b"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                <User
+                  size={18}
+                  style={{ color: "var(--color-text-muted)" }}
+                />
+                <span
+                  className="text-xs truncate"
+                  style={{ color: "var(--color-text)" }}
+                >
+                  {username}
+                </span>
+              </div>
+            )}
+
+            {/* Boards */}
+            <div className="flex-1 overflow-y-auto py-2">
+              <div
+                className="px-4 py-2 text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Boards
+              </div>
+              {boards.map((board) => (
+                <button
+                  key={board}
+                  type="button"
+                  onClick={() => {
+                    onSelectBoard(board);
+                    setOpen(false);
+                  }}
+                  className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
+                  style={{
+                    color:
+                      board === currentBoard
+                        ? "var(--color-accent)"
+                        : "var(--color-text)",
+                    backgroundColor:
+                      board === currentBoard
+                        ? "var(--color-surface-hover)"
+                        : "transparent",
+                    minHeight: 44,
+                  }}
+                >
+                  <Folder size={16} />
+                  <span className="text-sm">@{board}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Footer actions */}
+            <div
+              className="border-t py-1"
+              style={{ borderColor: "var(--color-border)" }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onOpenSettings();
+                }}
+                className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
+                style={{
+                  color: "var(--color-text)",
+                  background: "none",
+                  minHeight: 44,
+                }}
+              >
+                <Settings size={16} />
+                <span className="text-sm">Settings</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onLogout();
+                }}
+                className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
+                style={{
+                  color: "var(--color-error)",
+                  background: "none",
+                  minHeight: 44,
+                }}
+              >
+                <LogOut size={16} />
+                <span className="text-sm">Logout</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(0); }
+        }
+      `}</style>
+    </>
+  );
+}
