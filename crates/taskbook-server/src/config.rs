@@ -10,6 +10,9 @@ pub struct OidcConfig {
     /// Public base URL of this server, used to construct the redirect_uri.
     /// Defaults to `http://{host}:{port}` if not set.
     pub base_url: String,
+    /// Allowed post-login redirect URIs for SPA clients.
+    /// Set via `TB_OIDC_ALLOWED_REDIRECTS` (comma-separated).
+    pub allowed_redirects: Vec<String>,
 }
 
 /// Server configuration, loaded from environment variables.
@@ -74,11 +77,18 @@ impl ServerConfig {
             (Some(issuer), Some(client_id), Some(client_secret)) => {
                 let base_url = std::env::var("TB_OIDC_BASE_URL")
                     .unwrap_or_else(|_| format!("http://{}:{}", host, port));
+                let allowed_redirects: Vec<String> = std::env::var("TB_OIDC_ALLOWED_REDIRECTS")
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
                 Some(OidcConfig {
                     issuer,
                     client_id,
                     client_secret,
                     base_url,
+                    allowed_redirects,
                 })
             }
             _ => None,

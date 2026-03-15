@@ -97,6 +97,8 @@ pub struct AppState {
     pub prometheus_handle: PrometheusHandle,
     /// Issuer URL stored for deriving the provider name in OIDC handler.
     pub oidc_issuer: Option<String>,
+    /// Allowed post-login redirect URIs for SPA clients.
+    pub allowed_redirects: Vec<String>,
 }
 
 pub async fn build(
@@ -109,6 +111,9 @@ pub async fn build(
     let auth_rate_limiter = RateLimiter::new(10, 60);
 
     let oidc_issuer = oidc_config.map(|c| c.issuer.clone());
+    let allowed_redirects = oidc_config
+        .map(|c| c.allowed_redirects.clone())
+        .unwrap_or_default();
 
     let state = AppState {
         pool,
@@ -117,6 +122,7 @@ pub async fn build(
         notifications: NotificationHub::default(),
         prometheus_handle,
         oidc_issuer,
+        allowed_redirects,
     };
 
     let cors = build_cors_layer(cors_origins);
