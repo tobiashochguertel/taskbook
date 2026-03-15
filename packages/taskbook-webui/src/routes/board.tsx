@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { CommandPalette } from "../components/ui/command-palette";
+import { ConnectionIndicator } from "../components/ui/connection-indicator";
 import { CreateItemSheet } from "../components/ui/create-item-sheet";
 import { Drawer } from "../components/ui/drawer";
 import { Fab } from "../components/ui/fab";
@@ -182,6 +183,7 @@ export function BoardPage() {
               onOpenSettings={() => setShowSettings(true)}
               onLogout={logout}
               username={user.data?.username}
+              email={user.data?.email}
             />
           )}
 
@@ -242,11 +244,18 @@ export function BoardPage() {
             <Search size={18} />
           </button>
 
+          <ConnectionIndicator />
+
           <span
-            className="hidden md:inline text-xs"
+            className="hidden md:inline text-xs md:text-sm"
             style={{ color: "var(--color-text-muted)" }}
           >
             {user.data?.username}
+            {user.data?.email && user.data.email !== user.data.username && (
+              <span className="hidden lg:inline text-xs ml-1 opacity-70">
+                ({user.data.email})
+              </span>
+            )}
           </span>
 
           <button
@@ -300,7 +309,7 @@ export function BoardPage() {
         </main>
       ) : (
         /* ── Desktop: 3-column layout ── */
-        <main className="flex-1 p-6 grid grid-cols-3 gap-6 max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 grid grid-cols-3 gap-4 md:gap-6 lg:gap-8 w-full">
           <Column
             title="Tasks"
             icon={<CheckSquare size={16} />}
@@ -331,7 +340,7 @@ export function BoardPage() {
       {/* Desktop footer */}
       {!isMobile && (
         <footer
-          className="px-6 py-2 text-center text-xs border-t"
+          className="px-6 lg:px-8 py-2 text-center text-xs md:text-sm border-t"
           style={{
             color: "var(--color-text-muted)",
             borderColor: "var(--color-border)",
@@ -485,7 +494,7 @@ function Column({
         style={{ borderColor: "var(--color-border)" }}
       >
         <span style={{ color: accentColor }}>{icon}</span>
-        <h2 className="text-sm font-semibold" style={{ color: accentColor }}>
+        <h2 className="text-sm md:text-base font-semibold" style={{ color: accentColor }}>
           {title}
         </h2>
         <span
@@ -501,7 +510,7 @@ function Column({
       <div className="space-y-2">
         {items.length === 0 ? (
           <p
-            className="text-xs py-4 text-center"
+            className="text-xs md:text-sm py-4 text-center"
             style={{ color: "var(--color-text-muted)" }}
           >
             No items

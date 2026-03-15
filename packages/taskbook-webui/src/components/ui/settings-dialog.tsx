@@ -31,17 +31,21 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div
-        className="w-full max-w-sm rounded-lg shadow-2xl overflow-hidden"
-        style={{ backgroundColor: "var(--color-surface)" }}
+        className="w-full max-w-md rounded-xl overflow-hidden"
+        style={{
+          backgroundColor: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          boxShadow: "0 25px 60px -12px var(--color-dialog-shadow)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-4 border-b"
+          className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: "var(--color-border)" }}
         >
           <h2
-            className="text-sm font-bold"
+            className="text-sm md:text-base font-bold"
             style={{ color: "var(--color-text)" }}
           >
             Settings
@@ -62,11 +66,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-6">
+        <div className="px-6 py-5 space-y-6">
           {/* Theme */}
           <section>
             <label
-              className="block text-xs font-semibold uppercase tracking-wider mb-3"
+              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
               style={{ color: "var(--color-text-muted)" }}
             >
               Theme
@@ -104,8 +108,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           {/* Navigation style */}
           <section>
             <label
-              className="block text-xs font-semibold uppercase tracking-wider mb-3"
-              style={{ color: "var(--color-text-muted)" }}
+              className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"              style={{ color: "var(--color-text-muted)" }}
             >
               Navigation
             </label>
