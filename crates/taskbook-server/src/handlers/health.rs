@@ -6,6 +6,14 @@ use serde_json::{json, Value};
 
 use crate::router::AppState;
 
+#[utoipa::path(
+    get,
+    path = "/",
+    responses(
+        (status = 200, description = "Service info with available endpoints"),
+    ),
+    tag = "system"
+)]
 pub async fn root_info() -> impl IntoResponse {
     axum::Json(serde_json::json!({
         "service": "taskbook-server",
@@ -15,6 +23,15 @@ pub async fn root_info() -> impl IntoResponse {
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/health",
+    responses(
+        (status = 200, description = "Server is healthy"),
+        (status = 503, description = "Database unavailable"),
+    ),
+    tag = "system"
+)]
 #[tracing::instrument(skip(state))]
 pub async fn health(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     match sqlx::query("SELECT 1").execute(&state.pool).await {

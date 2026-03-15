@@ -15,6 +15,7 @@ use uuid::Uuid;
 use crate::config::OidcConfig;
 use crate::handlers::{events, health, items, user};
 use crate::metrics_middleware::HttpMetricsLayer;
+use crate::openapi::ApiDoc;
 use crate::rate_limit::RateLimiter;
 
 /// Strip OIDC-provider-appended parameters (like `scope`) from the request URI
@@ -120,6 +121,9 @@ pub async fn build(
 
     let cors = build_cors_layer(cors_origins);
 
+    let swagger_ui = utoipa_swagger_ui::SwaggerUi::new("/api/docs")
+        .url("/api/docs/openapi.json", <ApiDoc as utoipa::OpenApi>::openapi());
+
     let main_routes = Router::new()
         .route("/", get(health::root_info))
         .route("/api/v1/health", get(health::health))
@@ -136,6 +140,8 @@ pub async fn build(
         .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024))
         .layer(cors)
         .layer(HttpMetricsLayer);
+
+    let swagger_router: Router<()> = swagger_ui.into();
 
     if let Some(cfg) = oidc_config {
         use axum::error_handling::HandleErrorLayer;
@@ -183,11 +189,12 @@ pub async fn build(
             )
             .layer(axum::middleware::from_fn(strip_oidc_provider_params))
             .layer(session_layer)
-            .with_state(state);
+            .with_state(state)
+            .merge(swagger_router);
 
         Ok(app)
     } else {
-        Ok(main_routes.with_state(state))
+        Ok(main_routes.with_state(state).merge(swagger_router))
     }
 }
 

@@ -9,19 +9,23 @@ use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::router::{AppState, SyncEvent};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, utoipa::ToSchema)]
 pub struct EncryptedItemData {
-    pub data: String,  // base64-encoded ciphertext
-    pub nonce: String, // base64-encoded nonce
+    /// Base64-encoded ciphertext
+    pub data: String,
+    /// Base64-encoded nonce
+    pub nonce: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct ItemsResponse {
+    /// Map of item key to encrypted data
     pub items: HashMap<String, EncryptedItemData>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct PutItemsRequest {
+    /// Map of item key to encrypted data
     pub items: HashMap<String, EncryptedItemData>,
 }
 
@@ -43,6 +47,16 @@ fn rows_to_encrypted_items(
         .collect()
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/items",
+    responses(
+        (status = 200, description = "Active items", body = ItemsResponse),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state))]
 pub async fn get_items(
     State(state): State<AppState>,
@@ -61,6 +75,18 @@ pub async fn get_items(
     }))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/items",
+    request_body = PutItemsRequest,
+    responses(
+        (status = 200, description = "Items replaced"),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state, req), fields(item_count = req.items.len()))]
 pub async fn put_items(
     State(state): State<AppState>,
@@ -74,6 +100,16 @@ pub async fn put_items(
     Ok(())
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/items/archive",
+    responses(
+        (status = 200, description = "Archived items", body = ItemsResponse),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state))]
 pub async fn get_archive(
     State(state): State<AppState>,
@@ -92,6 +128,18 @@ pub async fn get_archive(
     }))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/items/archive",
+    request_body = PutItemsRequest,
+    responses(
+        (status = 200, description = "Archived items replaced"),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state, req), fields(item_count = req.items.len()))]
 pub async fn put_archive(
     State(state): State<AppState>,
