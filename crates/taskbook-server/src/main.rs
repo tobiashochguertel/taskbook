@@ -43,12 +43,21 @@ async fn main() {
 
     telemetry::spawn_db_pool_metrics(pool.clone());
 
-    let app = router::build(
+    let app = match router::build(
         pool,
         config.session_expiry_days,
         &config.cors_origins,
         prometheus_handle,
-    );
+        config.oidc.as_ref(),
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!("failed to build router: {e}");
+            std::process::exit(1);
+        }
+    };
     let addr = SocketAddr::from((config.host, config.port));
 
     tracing::info!("starting taskbook server on {}", addr);

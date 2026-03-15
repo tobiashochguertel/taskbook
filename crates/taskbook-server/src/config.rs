@@ -1,5 +1,17 @@
 use std::net::IpAddr;
 
+/// OIDC provider configuration for SSO login.
+/// Enabled only when all three required env vars are present.
+#[derive(Clone, Debug)]
+pub struct OidcConfig {
+    pub issuer: String,
+    pub client_id: String,
+    pub client_secret: String,
+    /// Public base URL of this server, used to construct the redirect_uri.
+    /// Defaults to `http://{host}:{port}` if not set.
+    pub base_url: String,
+}
+
 /// Server configuration, loaded from environment variables.
 ///
 /// Database connection is built from individual variables:
@@ -15,6 +27,8 @@ pub struct ServerConfig {
     pub session_expiry_days: i64,
     /// Allowed CORS origins (comma-separated). If empty, defaults to restrictive.
     pub cors_origins: Vec<String>,
+    /// Optional OIDC SSO configuration. None = OIDC disabled.
+    pub oidc: Option<OidcConfig>,
 }
 
 impl ServerConfig {
@@ -52,12 +66,31 @@ impl ServerConfig {
             .filter(|s| !s.is_empty())
             .collect();
 
+        let oidc = match (
+            std::env::var("TB_OIDC_ISSUER").ok(),
+            std::env::var("TB_OIDC_CLIENT_ID").ok(),
+            std::env::var("TB_OIDC_CLIENT_SECRET").ok(),
+        ) {
+            (Some(issuer), Some(client_id), Some(client_secret)) => {
+                let base_url = std::env::var("TB_OIDC_BASE_URL")
+                    .unwrap_or_else(|_| format!("http://{}:{}", host, port));
+                Some(OidcConfig {
+                    issuer,
+                    client_id,
+                    client_secret,
+                    base_url,
+                })
+            }
+            _ => None,
+        };
+
         Ok(Self {
             host,
             port,
             database_url,
             session_expiry_days,
             cors_origins,
+            oidc,
         })
     }
 }

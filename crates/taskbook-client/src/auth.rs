@@ -35,8 +35,13 @@ pub fn register(
     println!("{}", "Register new account".bold());
     println!();
 
+    let mut config = Config::load_or_default();
     let server = match server_url {
         Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
         None => prompt("Server URL: ")?,
     };
 
@@ -82,8 +87,7 @@ pub fn register(
     };
     creds.save()?;
 
-    // Enable sync in config
-    let mut config = Config::load_or_default();
+    // Enable sync
     config.enable_sync(&server)?;
 
     println!();
@@ -101,29 +105,28 @@ pub fn register(
     Ok(())
 }
 
-/// Log in to an existing account (interactive).
+/// Log in to an existing account (interactive or token-based).
+///
+/// When `token` is provided, skips username/password prompting and saves the
+/// token directly (useful for OIDC-obtained tokens).
 pub fn login(
     server_url: Option<&str>,
     username: Option<&str>,
     password: Option<&str>,
     encryption_key: Option<&str>,
+    token: Option<&str>,
 ) -> Result<()> {
     println!("{}", "Login".bold());
     println!();
 
+    let config = Config::load_or_default();
     let server = match server_url {
         Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
         None => prompt("Server URL: ")?,
-    };
-
-    let user = match username {
-        Some(u) => u.to_string(),
-        None => prompt("Username: ")?,
-    };
-
-    let pass = match password {
-        Some(p) => p.to_string(),
-        None => prompt_password("Password: ")?,
     };
 
     let key = match encryption_key {
@@ -131,26 +134,107 @@ pub fn login(
         None => prompt("Encryption key: ")?,
     };
 
-    let client = ApiClient::new(&server, None);
+    let final_token = if let Some(t) = token {
+        // Token-only login (e.g. from OIDC web flow)
+        t.to_string()
+    } else {
+        // Password-based login
+        let user = match username {
+            Some(u) => u.to_string(),
+            None => prompt("Username: ")?,
+        };
 
-    let resp = client.login(&LoginRequest {
-        username: user,
-        password: pass,
-    })?;
+        let pass = match password {
+            Some(p) => p.to_string(),
+            None => prompt_password("Password: ")?,
+        };
+
+        let client = ApiClient::new(&server, None);
+
+        let resp = client.login(&LoginRequest {
+            username: user,
+            password: pass,
+        })?;
+        resp.token
+    };
 
     let creds = Credentials {
         server_url: server.clone(),
-        token: resp.token,
+        token: final_token,
         encryption_key: key,
     };
     creds.save()?;
 
-    // Enable sync in config
-    let mut config = Config::load_or_default();
-    config.enable_sync(&server)?;
+    // Enable sync
+    let mut sync_cfg = Config::load_or_default();
+    sync_cfg.enable_sync(&server)?;
 
     println!();
     println!("{}", "Login successful!".green().bold());
+    println!("{}", "Sync is now enabled.".green());
+
+    Ok(())
+}
+
+/// Save a session token directly (non-interactive).
+///
+/// Designed for OIDC login workflows where the user obtains a token from the
+/// browser and needs to store it in the CLI without username/password prompting.
+pub fn set_token(
+    server_url: Option<&str>,
+    token: Option<&str>,
+    encryption_key: Option<&str>,
+) -> Result<()> {
+    let config = Config::load_or_default();
+    let server = match server_url {
+        Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
+        None => prompt("Server URL: ")?,
+    };
+
+    let tok = match token {
+        Some(t) => t.to_string(),
+        None => prompt("Session token: ")?,
+    };
+
+    let key = match encryption_key {
+        Some(k) => k.to_string(),
+        None => prompt("Encryption key: ")?,
+    };
+
+    let creds = Credentials {
+        server_url: server.clone(),
+        token: tok,
+        encryption_key: key,
+    };
+    creds.save()?;
+
+    // Enable sync
+    let mut sync_cfg = Config::load_or_default();
+    sync_cfg.enable_sync(&server)?;
+
+    // Verify the token works
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    match client.get_me() {
+        Ok(me) => {
+            println!(
+                "{}",
+                format!("Token saved — logged in as {} ({})", me.username, me.email)
+                    .green()
+                    .bold()
+            );
+        }
+        Err(_) => {
+            println!("{}", "Token saved.".green().bold());
+            println!(
+                "{}",
+                "Warning: could not verify token — it may be expired.".yellow()
+            );
+        }
+    }
     println!("{}", "Sync is now enabled.".green());
 
     Ok(())
@@ -190,10 +274,28 @@ pub fn status() -> Result<()> {
     match Credentials::load()? {
         Some(creds) => {
             println!("Credentials: {}", "saved".green());
-            println!("Server URL:  {}", creds.server_url);
+
+            // Warn if credentials were saved for a different server
+            if creds.server_url != config.sync.server_url && config.sync.enabled {
+                println!(
+                    "{}",
+                    format!(
+                        "Warning: credentials were saved for {} (config points to {})",
+                        creds.server_url, config.sync.server_url
+                    )
+                    .yellow()
+                );
+                println!(
+                    "{}",
+                    "Hint: run `tb --login` or `tb --set-token` to re-authenticate against the configured server."
+                        .dimmed()
+                );
+            }
 
             if config.sync.enabled {
-                let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+                // Use the config server URL (user's intent), not the stale credentials URL
+                let effective_url = &config.sync.server_url;
+                let client = ApiClient::new(effective_url, Some(&creds.token));
                 match client.get_me() {
                     Ok(me) => {
                         println!("Session:     {}", "valid".green());
@@ -202,12 +304,26 @@ pub fn status() -> Result<()> {
                     Err(e) => {
                         println!("Session:     {}", "invalid".red());
                         println!("Error:       {}", e);
+                        println!();
+                        println!(
+                            "{}",
+                            "To fix: run `tb --login` or `tb --set-token` to re-authenticate."
+                                .yellow()
+                        );
                     }
                 }
             }
         }
         None => {
             println!("Credentials: {}", "none".dimmed());
+            if config.sync.enabled {
+                println!();
+                println!(
+                    "{}",
+                    "To authenticate: run `tb --login` or `tb --set-token`."
+                        .yellow()
+                );
+            }
         }
     }
 
