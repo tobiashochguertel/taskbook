@@ -77,9 +77,12 @@ export function BottomSheet({
     >
       <div
         ref={sheetRef}
-        className="w-full max-w-lg rounded-t-2xl shadow-2xl safe-bottom"
+        className="w-full max-w-xl rounded-t-2xl safe-bottom"
         style={{
           backgroundColor: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          borderBottom: "none",
+          boxShadow: "0 -10px 40px -5px var(--color-dialog-shadow)",
           transform: isClosing
             ? "translateY(100%)"
             : `translateY(${dragOffset}px)`,

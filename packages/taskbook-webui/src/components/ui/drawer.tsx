@@ -15,6 +15,7 @@ interface DrawerProps {
   onOpenSettings: () => void;
   onLogout: () => void;
   username?: string;
+  email?: string;
 }
 
 export function BurgerButton({ onClick }: { onClick: () => void }) {
@@ -43,6 +44,7 @@ export function Drawer({
   onOpenSettings,
   onLogout,
   username,
+  email,
 }: DrawerProps) {
   const [open, setOpen] = useState(false);
 
@@ -112,21 +114,34 @@ export function Drawer({
             </div>
 
             {/* User info */}
-            {username && (
+            {(username || email) && (
               <div
                 className="flex items-center gap-3 px-4 py-3 border-b"
                 style={{ borderColor: "var(--color-border)" }}
               >
                 <User
                   size={18}
+                  className="shrink-0"
                   style={{ color: "var(--color-text-muted)" }}
                 />
-                <span
-                  className="text-xs truncate"
-                  style={{ color: "var(--color-text)" }}
-                >
-                  {username}
-                </span>
+                <div className="min-w-0">
+                  {username && (
+                    <span
+                      className="text-sm truncate block"
+                      style={{ color: "var(--color-text)" }}
+                    >
+                      {username}
+                    </span>
+                  )}
+                  {email && (
+                    <span
+                      className="text-xs truncate block"
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
+                      {email}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
@@ -167,7 +182,7 @@ export function Drawer({
 
             {/* Footer actions */}
             <div
-              className="border-t py-1"
+              className="border-t py-2 px-2"
               style={{ borderColor: "var(--color-border)" }}
             >
               <button

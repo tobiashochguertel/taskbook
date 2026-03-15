@@ -16,6 +16,7 @@
   --color-error: #f7768e;
   --color-info: #7dcfff;
   --color-backdrop: rgba(0, 0, 0, 0.6);
+  --color-dialog-shadow: rgba(0, 0, 0, 0.8);
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
@@ -34,80 +35,100 @@
   --color-error: #d63c4a;
   --color-info: #0f7b8f;
   --color-backdrop: rgba(0, 0, 0, 0.3);
+  --color-dialog-shadow: rgba(0, 0, 0, 0.4);
 }
 
-/* ── Reset & base ─────────────────────────────────────── */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ── Base styles (in Tailwind layer so utilities win) ── */
+@layer base {
+  html {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
 
-html {
-  /* iPhone safe-area support */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-    env(safe-area-inset-bottom) env(safe-area-inset-left);
-}
+  body {
+    font-family: var(--font-mono);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: contain;
+  }
 
-body {
-  font-family: var(--font-mono);
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  /* Prevent pull-to-refresh on mobile */
-  overscroll-behavior-y: contain;
-}
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-bg);
+  }
 
-::selection {
-  background-color: var(--color-accent);
-  color: var(--color-bg);
-}
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
+  a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
 
-a {
-  color: var(--color-accent);
-  text-decoration: none;
-}
-
-a:hover {
-  color: var(--color-accent-hover);
+  a:hover {
+    color: var(--color-accent-hover);
+  }
 }
 
 /* ── Touch optimizations ──────────────────────────────── */
-@media (pointer: coarse) {
-  /* Minimum 44px tap targets on touch devices */
-  button,
-  [role="button"],
-  select,
-  input[type="checkbox"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
+@layer base {
+  @media (pointer: coarse) {
+    button,
+    [role="button"],
+    select,
+    input[type="checkbox"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
 
-  /* Disable text selection on interactive elements */
-  button,
-  [role="button"],
-  nav {
-    -webkit-user-select: none;
-    user-select: none;
-  }
+    button,
+    [role="button"],
+    nav {
+      -webkit-user-select: none;
+      user-select: none;
+    }
 
-  /* Faster tap response */
-  * {
-    -webkit-tap-highlight-color: transparent;
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
   }
 }
 
 /* ── Safe area helpers ────────────────────────────────── */
-.safe-bottom {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
 }
 
-.safe-top {
-  padding-top: max(0.5rem, env(safe-area-inset-top));
+/* ── Responsive scaling for large screens ────────────── */
+@media (min-width: 1440px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 2560px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+/* ── cmdk overrides for better spacing ───────────────── */
+[cmdk-item] {
+  border-radius: 0.5rem;
+  transition: background-color 0.15s;
+}
+
+[cmdk-item][data-selected="true"],
+[cmdk-item][aria-selected="true"] {
+  background-color: var(--color-surface-hover);
 }

@@ -31,14 +31,18 @@ export function CommandPalette({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
-      style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] px-4"
+      style={{ backgroundColor: "var(--color-backdrop)" }}
       onClick={onClose}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div
-        className="w-full max-w-lg rounded-lg overflow-hidden shadow-2xl"
-        style={{ backgroundColor: "var(--color-surface)" }}
+        className="w-full max-w-2xl rounded-xl overflow-hidden"
+        style={{
+          backgroundColor: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          boxShadow: "0 25px 60px -12px var(--color-dialog-shadow)",
+        }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={() => {}}
       >
@@ -49,16 +53,16 @@ export function CommandPalette({
           <Command.Input
             ref={inputRef}
             placeholder="Search items, boards, actions..."
-            className="w-full px-4 py-3 text-sm border-b outline-none"
+            className="w-full px-5 py-4 text-sm md:text-base border-b outline-none"
             style={{
-              backgroundColor: "var(--color-surface)",
+              backgroundColor: "var(--color-bg)",
               color: "var(--color-text)",
               borderColor: "var(--color-border)",
             }}
           />
-          <Command.List className="max-h-64 overflow-y-auto p-2">
+          <Command.List className="max-h-80 overflow-y-auto p-3">
             <Command.Empty
-              className="py-4 text-center text-sm"
+              className="py-8 text-center text-sm md:text-base"
               style={{ color: "var(--color-text-muted)" }}
             >
               No results
@@ -66,8 +70,8 @@ export function CommandPalette({
 
             <Command.Group
               heading="Boards"
-              className="text-xs font-semibold px-2 py-1"
-              style={{ color: "var(--color-text-muted)" }}
+              className="text-xs md:text-sm font-semibold px-3 py-2"
+              style={{ color: "var(--color-accent)" }}
             >
               {boards.map((board) => (
                 <Command.Item
@@ -77,7 +81,7 @@ export function CommandPalette({
                     onSelectBoard(board);
                     onClose();
                   }}
-                  className="px-3 py-2 rounded text-sm cursor-pointer"
+                  className="px-4 py-3 rounded-lg text-sm md:text-base cursor-pointer"
                   style={{ color: "var(--color-text)" }}
                   data-selected={false}
                 >
@@ -88,14 +92,14 @@ export function CommandPalette({
 
             <Command.Group
               heading="Items"
-              className="text-xs font-semibold px-2 py-1"
-              style={{ color: "var(--color-text-muted)" }}
+              className="text-xs md:text-sm font-semibold px-3 py-2"
+              style={{ color: "var(--color-accent)" }}
             >
               {items.slice(0, 20).map((item) => (
                 <Command.Item
                   key={item.id}
                   value={item.description}
-                  className="px-3 py-2 rounded text-sm cursor-pointer flex items-center gap-2"
+                  className="px-4 py-3 rounded-lg text-sm md:text-base cursor-pointer flex items-center gap-3"
                   style={{ color: "var(--color-text)" }}
                 >
                   <span
