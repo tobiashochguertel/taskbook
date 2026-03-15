@@ -12,6 +12,7 @@ mod directory;
 mod editor;
 mod error;
 mod render;
+mod sso;
 mod storage;
 mod taskbook;
 mod tui;
@@ -74,7 +75,8 @@ const HELP_TEXT: &str = r#"
 
     Server commands
       --register         Register a new server account
-      --login            Log in to an existing account
+      --login            Log in to an existing account (password-based)
+      --login-sso        Log in via browser SSO (OIDC) — opens browser automatically
       --logout           Log out and delete credentials
       --status           Show sync status
       --migrate          Push local data to server
@@ -214,6 +216,10 @@ struct Cli {
     #[arg(long)]
     login: bool,
 
+    /// Log in via browser-based SSO (OIDC) — opens browser for authentication
+    #[arg(long)]
+    login_sso: bool,
+
     /// Log out and delete credentials
     #[arg(long)]
     logout: bool,
@@ -280,6 +286,14 @@ fn main() {
             cli.key.as_deref(),
             cli.token.as_deref(),
         ) {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        return;
+    }
+
+    if cli.login_sso {
+        if let Err(e) = auth::login_sso(cli.server.as_deref(), cli.key.as_deref()) {
             eprintln!("Error: {}", e);
             process::exit(1);
         }
