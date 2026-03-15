@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-:root {
+/* ── Dark theme (default) ─────────────────────────────── */
+:root,
+[data-theme="dark"] {
   --color-bg: #1a1b26;
   --color-surface: #24283b;
   --color-surface-hover: #2f3347;
@@ -13,13 +15,38 @@
   --color-warning: #e0af68;
   --color-error: #f7768e;
   --color-info: #7dcfff;
+  --color-backdrop: rgba(0, 0, 0, 0.6);
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
+/* ── Light theme ──────────────────────────────────────── */
+[data-theme="light"] {
+  --color-bg: #f0f1f5;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f5f5fa;
+  --color-border: #d4d6e0;
+  --color-text: #343b58;
+  --color-text-muted: #9699a3;
+  --color-accent: #2e7cf6;
+  --color-accent-hover: #1a6def;
+  --color-success: #449d48;
+  --color-warning: #c49026;
+  --color-error: #d63c4a;
+  --color-info: #0f7b8f;
+  --color-backdrop: rgba(0, 0, 0, 0.3);
+}
+
+/* ── Reset & base ─────────────────────────────────────── */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  /* iPhone safe-area support */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 body {
@@ -28,6 +55,8 @@ body {
   color: var(--color-text);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  /* Prevent pull-to-refresh on mobile */
+  overscroll-behavior-y: contain;
 }
 
 ::selection {
@@ -47,4 +76,38 @@ a {
 
 a:hover {
   color: var(--color-accent-hover);
+}
+
+/* ── Touch optimizations ──────────────────────────────── */
+@media (pointer: coarse) {
+  /* Minimum 44px tap targets on touch devices */
+  button,
+  [role="button"],
+  select,
+  input[type="checkbox"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Disable text selection on interactive elements */
+  button,
+  [role="button"],
+  nav {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Faster tap response */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ── Safe area helpers ────────────────────────────────── */
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
 }

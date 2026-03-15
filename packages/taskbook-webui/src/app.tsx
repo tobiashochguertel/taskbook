@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { SettingsProvider } from "./lib/settings";
 import { BoardPage } from "./routes/board";
 import { LoginPage } from "./routes/login";
 
@@ -29,7 +30,9 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
+        <SettingsProvider>
+          <Router />
+        </SettingsProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
