@@ -1,20 +1,30 @@
-use axum::{extract::State, response::Html};
+use axum::{
+    extract::{Query, State},
+    response::{Html, IntoResponse, Redirect},
+};
 use axum_oidc::{EmptyAdditionalClaims, OidcAccessToken, OidcClaims};
 use base64::Engine;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::error::{Result, ServerError};
 use crate::handlers::user::create_session;
 use crate::router::AppState;
 
+#[derive(Deserialize, Default)]
+pub struct LoginQuery {
+    /// Post-login redirect URI for SPA clients.
+    /// Must match one of the configured `TB_OIDC_ALLOWED_REDIRECTS`.
+    pub redirect_uri: Option<String>,
+}
+
 pub async fn login(
     State(state): State<AppState>,
+    Query(query): Query<LoginQuery>,
     claims: OidcClaims<EmptyAdditionalClaims>,
     OidcAccessToken(access_token): OidcAccessToken,
-) -> Result<Html<String>> {
+) -> Result<impl IntoResponse> {
     let subject = claims.subject().to_string();
-    // Try email from ID token first; fall back to userinfo endpoint (Authelia
-    // returns email claims via userinfo rather than embedding them in the ID token)
     let email = match claims.email().map(|e| e.to_string()) {
         Some(e) => Some(e),
         None => fetch_email_from_userinfo(state.oidc_issuer.as_deref(), &access_token).await,
@@ -39,7 +49,33 @@ pub async fn login(
 
     let token = create_session(&state.pool, user_id, state.session_expiry_days).await?;
 
-    Ok(Html(render_token_page(&token, is_new_user, encryption_key.as_deref())))
+    // If a valid redirect_uri was provided, redirect to it with the token in the fragment.
+    if let Some(redirect_uri) = &query.redirect_uri {
+        if is_allowed_redirect(redirect_uri, &state.allowed_redirects) {
+            let mut target = redirect_uri.clone();
+            target.push_str("#token=");
+            target.push_str(&token);
+            if is_new_user {
+                if let Some(key) = &encryption_key {
+                    target.push_str("&encryption_key=");
+                    target.push_str(key);
+                }
+                target.push_str("&new_user=true");
+            }
+            return Ok(Redirect::to(&target).into_response());
+        }
+        return Err(ServerError::Validation(format!(
+            "redirect_uri '{}' is not in the allowed list",
+            redirect_uri
+        )));
+    }
+
+    Ok(Html(render_token_page(&token, is_new_user, encryption_key.as_deref())).into_response())
+}
+
+/// Check if a redirect URI is allowed by matching against configured prefixes.
+fn is_allowed_redirect(uri: &str, allowed: &[String]) -> bool {
+    allowed.iter().any(|allowed_prefix| uri.starts_with(allowed_prefix))
 }
 
 /// Fetch email from the OIDC userinfo endpoint using the access token.
