@@ -4310,7 +4310,7 @@ dependencies = [
 
 [[package]]
 name = "taskbook-client"
-version = "1.5.4"
+version = "1.5.5"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -4336,7 +4336,7 @@ dependencies = [
 
 [[package]]
 name = "taskbook-common"
-version = "1.5.4"
+version = "1.5.5"
 dependencies = [
  "aes-gcm",
  "chrono",
@@ -4348,7 +4348,7 @@ dependencies = [
 
 [[package]]
 name = "taskbook-server"
-version = "1.5.4"
+version = "1.5.5"
 dependencies = [
  "argon2",
  "axum",
@@ -4365,6 +4365,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "taskbook-common",
  "thiserror 1.0.69",

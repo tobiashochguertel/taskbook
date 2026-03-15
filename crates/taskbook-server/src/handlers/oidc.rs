@@ -71,6 +71,18 @@ pub async fn login(
                 }
                 target.push_str("&new_user=true");
             }
+            if !is_new_user {
+                let has_key = sqlx::query_scalar::<_, Option<String>>(
+                    "SELECT encryption_key_hash FROM users WHERE id = $1",
+                )
+                .bind(user_id)
+                .fetch_one(&state.pool)
+                .await
+                .map_err(ServerError::Database)?
+                .is_some();
+                target.push_str("&encryption_key_available=");
+                target.push_str(if has_key { "true" } else { "false" });
+            }
             return Ok(Redirect::to(&target).into_response());
         }
     }

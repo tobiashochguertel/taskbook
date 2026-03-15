@@ -171,7 +171,13 @@ pub async fn build(
         .route("/api/v1/register", post(user::register))
         .route("/api/v1/login", post(user::login))
         .route("/api/v1/logout", delete(user::logout))
-        .route("/api/v1/me", get(user::me))
+        .route("/api/v1/me", get(user::me).patch(user::update_me))
+        .route(
+            "/api/v1/me/encryption-key",
+            get(user::get_encryption_key_status)
+                .post(user::store_encryption_key)
+                .delete(user::reset_encryption_key),
+        )
         .route("/api/v1/items", get(items::get_items))
         .route("/api/v1/items", put(items::put_items))
         .route("/api/v1/items/archive", get(items::get_archive))
@@ -260,6 +266,7 @@ fn build_cors_layer(origins: &[String]) -> CorsLayer {
             axum::http::Method::POST,
             axum::http::Method::PUT,
             axum::http::Method::DELETE,
+            axum::http::Method::PATCH,
         ])
         .allow_headers([
             axum::http::header::CONTENT_TYPE,

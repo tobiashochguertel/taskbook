@@ -47,6 +47,27 @@ pub struct MeResponse {
     pub email: String,
 }
 
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct UpdateMeRequest {
+    pub username: Option<String>,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct UpdateMeResponse {
+    pub username: String,
+    pub email: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct EncryptionKeyStatus {
+    pub has_key: bool,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct StoreKeyRequest {
+    pub encryption_key: String,
+}
+
 #[utoipa::path(
     post,
     path = "/api/v1/register",
@@ -194,6 +215,155 @@ pub async fn me(State(state): State<AppState>, auth: AuthUser) -> Result<Json<Me
         username: user.0,
         email: user.1,
     }))
+}
+
+#[utoipa::path(
+    patch,
+    path = "/api/v1/me",
+    request_body = UpdateMeRequest,
+    responses(
+        (status = 200, description = "Profile updated", body = UpdateMeResponse),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Authentication required"),
+        (status = 409, description = "Username taken"),
+    ),
+    security(("bearer" = [])),
+    tag = "auth"
+)]
+pub async fn update_me(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<UpdateMeRequest>,
+) -> Result<Json<UpdateMeResponse>> {
+    if let Some(ref username) = req.username {
+        if username.is_empty() || username.len() > 64 {
+            return Err(ServerError::Validation(
+                "username must be 1-64 characters".into(),
+            ));
+        }
+        if !username
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
+        {
+            return Err(ServerError::Validation(
+                "username must contain only alphanumeric characters, hyphens, underscores, or dots"
+                    .into(),
+            ));
+        }
+
+        sqlx::query("UPDATE users SET username = $1 WHERE id = $2")
+            .bind(username)
+            .bind(auth.user_id)
+            .execute(&state.pool)
+            .await
+            .map_err(|e| match e {
+                sqlx::Error::Database(ref db_err) if db_err.is_unique_violation() => {
+                    ServerError::UserAlreadyExists
+                }
+                _ => ServerError::Database(e),
+            })?;
+    }
+
+    let user =
+        sqlx::query_as::<_, (String, String)>("SELECT username, email FROM users WHERE id = $1")
+            .bind(auth.user_id)
+            .fetch_one(&state.pool)
+            .await
+            .map_err(ServerError::Database)?;
+
+    Ok(Json(UpdateMeResponse {
+        username: user.0,
+        email: user.1,
+    }))
+}
+
+/// Check if user has an encryption key stored.
+#[utoipa::path(
+    get,
+    path = "/api/v1/me/encryption-key",
+    responses(
+        (status = 200, description = "Key status", body = EncryptionKeyStatus),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "encryption"
+)]
+pub async fn get_encryption_key_status(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<Json<EncryptionKeyStatus>> {
+    let has_key = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT encryption_key_hash FROM users WHERE id = $1",
+    )
+    .bind(auth.user_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(ServerError::Database)?
+    .is_some();
+
+    Ok(Json(EncryptionKeyStatus { has_key }))
+}
+
+/// Store encryption key (hashed, for cross-device sync indication).
+#[utoipa::path(
+    post,
+    path = "/api/v1/me/encryption-key",
+    request_body = StoreKeyRequest,
+    responses(
+        (status = 200, description = "Key stored", body = EncryptionKeyStatus),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "encryption"
+)]
+pub async fn store_encryption_key(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<StoreKeyRequest>,
+) -> Result<Json<EncryptionKeyStatus>> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(req.encryption_key.as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+
+    sqlx::query("UPDATE users SET encryption_key_hash = $1 WHERE id = $2")
+        .bind(&hash)
+        .bind(auth.user_id)
+        .execute(&state.pool)
+        .await
+        .map_err(ServerError::Database)?;
+
+    Ok(Json(EncryptionKeyStatus { has_key: true }))
+}
+
+/// Reset encryption key — clears key hash AND all user data.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/me/encryption-key",
+    responses(
+        (status = 200, description = "Key reset, data cleared", body = EncryptionKeyStatus),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "encryption"
+)]
+pub async fn reset_encryption_key(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<Json<EncryptionKeyStatus>> {
+    sqlx::query("UPDATE users SET encryption_key_hash = NULL WHERE id = $1")
+        .bind(auth.user_id)
+        .execute(&state.pool)
+        .await
+        .map_err(ServerError::Database)?;
+
+    sqlx::query("DELETE FROM items WHERE user_id = $1")
+        .bind(auth.user_id)
+        .execute(&state.pool)
+        .await
+        .map_err(ServerError::Database)?;
+
+    Ok(Json(EncryptionKeyStatus { has_key: false }))
 }
 
 /// Generate a cryptographically random 256-bit session token.
