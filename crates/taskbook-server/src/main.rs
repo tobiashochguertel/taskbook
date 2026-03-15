@@ -1,6 +1,7 @@
 mod auth;
 mod config;
 mod db;
+mod embedded_ui;
 mod error;
 mod handlers;
 mod metrics_middleware;

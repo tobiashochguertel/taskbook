@@ -200,9 +200,12 @@ pub async fn build(
             .with_state(state)
             .merge(swagger_router);
 
-        Ok(app)
+        Ok(app.fallback(crate::embedded_ui::serve_ui))
     } else {
-        Ok(main_routes.with_state(state).merge(swagger_router))
+        Ok(main_routes
+            .with_state(state)
+            .merge(swagger_router)
+            .fallback(crate::embedded_ui::serve_ui))
     }
 }
 
