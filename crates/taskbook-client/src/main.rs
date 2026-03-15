@@ -16,6 +16,34 @@ mod storage;
 mod taskbook;
 mod tui;
 
+fn version_long() -> &'static str {
+    let version = env!("CARGO_PKG_VERSION");
+    let hash = env!("TB_GIT_HASH");
+    let branch = env!("TB_GIT_BRANCH");
+    let tag = env!("TB_GIT_TAG");
+    let dirty = env!("TB_GIT_DIRTY");
+    let repo = env!("TB_GIT_REPO");
+    let date = env!("TB_BUILD_DATE");
+
+    let mut s = format!("{version}");
+    if !hash.is_empty() {
+        s.push_str(&format!(" ({hash}{dirty})"));
+    }
+    if !branch.is_empty() {
+        s.push_str(&format!("\nbranch:  {branch}"));
+    }
+    if !tag.is_empty() {
+        s.push_str(&format!("\ntag:     {tag}"));
+    }
+    if !repo.is_empty() {
+        s.push_str(&format!("\nrepo:    {repo}"));
+    }
+    if !date.is_empty() {
+        s.push_str(&format!("\nbuilt:   {date}"));
+    }
+    Box::leak(s.into_boxed_str())
+}
+
 const HELP_TEXT: &str = r#"
   Usage
     $ tb [<options> ...]
@@ -88,6 +116,7 @@ const HELP_TEXT: &str = r#"
 #[command(
     name = "tb",
     version = env!("CARGO_PKG_VERSION"),
+    long_version = version_long(),
     about = "Tasks, boards & notes for the command-line habitat",
     after_help = HELP_TEXT
 )]
