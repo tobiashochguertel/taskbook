@@ -14,35 +14,51 @@ use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::router::AppState;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct RegisterRequest {
+    /// Username (1-64 chars, alphanumeric/underscore/dash)
     pub username: String,
+    /// Email address
     pub email: String,
+    /// Password (8-1024 chars)
     pub password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct RegisterResponse {
+    /// Session token
     pub token: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct LoginResponse {
     pub token: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct MeResponse {
     pub username: String,
     pub email: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/register",
+    request_body = RegisterRequest,
+    responses(
+        (status = 200, description = "Registration successful", body = RegisterResponse),
+        (status = 400, description = "Validation error"),
+        (status = 409, description = "User already exists"),
+        (status = 429, description = "Rate limit exceeded"),
+    ),
+    tag = "auth"
+)]
 #[tracing::instrument(skip(state, req), fields(username = %req.username))]
 pub async fn register(
     State(state): State<AppState>,
@@ -82,6 +98,17 @@ pub async fn register(
     Ok(Json(RegisterResponse { token }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Login successful", body = LoginResponse),
+        (status = 401, description = "Invalid credentials"),
+        (status = 429, description = "Rate limit exceeded"),
+    ),
+    tag = "auth"
+)]
 #[tracing::instrument(skip(state, req), fields(username = %req.username))]
 pub async fn login(
     State(state): State<AppState>,
@@ -120,6 +147,16 @@ pub async fn login(
     Ok(Json(LoginResponse { token }))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/logout",
+    responses(
+        (status = 200, description = "Logged out successfully"),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "auth"
+)]
 #[tracing::instrument(skip(state))]
 pub async fn logout(State(state): State<AppState>, auth: AuthUser) -> Result<()> {
     sqlx::query("DELETE FROM sessions WHERE user_id = $1")
@@ -133,6 +170,16 @@ pub async fn logout(State(state): State<AppState>, auth: AuthUser) -> Result<()>
     Ok(())
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/me",
+    responses(
+        (status = 200, description = "Current user info", body = MeResponse),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "auth"
+)]
 #[tracing::instrument(skip(state))]
 pub async fn me(State(state): State<AppState>, auth: AuthUser) -> Result<Json<MeResponse>> {
     let user =

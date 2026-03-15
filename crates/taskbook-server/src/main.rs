@@ -5,6 +5,7 @@ mod error;
 mod handlers;
 mod metrics_middleware;
 mod middleware;
+mod openapi;
 mod rate_limit;
 mod router;
 mod telemetry;
