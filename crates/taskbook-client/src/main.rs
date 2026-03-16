@@ -16,6 +16,7 @@ mod sso;
 mod storage;
 mod taskbook;
 mod tui;
+mod update_check;
 
 fn version_long() -> &'static str {
     let version = env!("CARGO_PKG_VERSION");
@@ -273,6 +274,9 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
+
+    // Check for updates in background (non-blocking, once per 24h)
+    update_check::check_for_updates();
 
     // Handle server commands first (interactive prompts for missing values)
     if cli.register {
