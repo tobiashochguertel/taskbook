@@ -44,9 +44,15 @@ pub fn render_stats_line(frame: &mut Frame, app: &App, area: Rect) {
 
         let mut spans = vec![Span::raw("  ")];
 
-        // Sync mode indicator
+        // Sync mode indicator with label
         if app.config.sync.enabled {
             spans.push(Span::styled("● ", Style::default().fg(Color::Green)));
+            spans.push(Span::styled("Synced", Style::default().fg(Color::Green)));
+            spans.push(Span::styled(" │ ", app.theme.muted));
+        } else {
+            spans.push(Span::styled("● ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled("Local", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled(" │ ", app.theme.muted));
         }
 
         spans.extend(vec![
@@ -85,9 +91,30 @@ fn append_key_hints<'a>(app: &'a App, spans: &mut Vec<Span<'a>>) {
     let key_style = Style::default()
         .fg(Color::Yellow)
         .add_modifier(Modifier::BOLD);
+    let active_key_style = Style::default()
+        .fg(Color::Cyan)
+        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED);
     let sep_style = app.theme.muted;
 
-    spans.push(Span::styled("  ?", key_style));
+    // View-switching shortcuts (1-4)
+    let views: &[(char, &str, ViewMode)] = &[
+        ('1', "Board", ViewMode::Board),
+        ('2', "Timeline", ViewMode::Timeline),
+        ('3', "Archive", ViewMode::Archive),
+        ('4', "Journal", ViewMode::Journal),
+    ];
+    for (key, name, mode) in views {
+        let style = if app.view == *mode {
+            active_key_style
+        } else {
+            key_style
+        };
+        spans.push(Span::styled(format!("{key}"), style));
+        spans.push(Span::styled(format!(" {name}"), sep_style));
+        spans.push(Span::styled(" │ ", sep_style));
+    }
+
+    spans.push(Span::styled("?", key_style));
     spans.push(Span::styled(" Help", sep_style));
     spans.push(Span::styled(" │ ", sep_style));
     spans.push(Span::styled("/", key_style));

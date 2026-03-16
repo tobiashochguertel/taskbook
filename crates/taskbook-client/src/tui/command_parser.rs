@@ -56,6 +56,15 @@ pub enum ParsedCommand {
     Sort,
     HideDone,
     Sync,
+    ForceSync,
+    Ping,
+    Server,
+    EncryptionKey {
+        sub: Option<String>,
+    },
+    Reset {
+        target: String,
+    },
     Status,
     Help,
     Quit,
@@ -115,6 +124,34 @@ pub fn parse_command(input: &str) -> Result<ParsedCommand, ParseError> {
         "sort" => Ok(ParsedCommand::Sort),
         "hide-done" => Ok(ParsedCommand::HideDone),
         "sync" | "refresh" => Ok(ParsedCommand::Sync),
+        "force-sync" => Ok(ParsedCommand::ForceSync),
+        "ping" => Ok(ParsedCommand::Ping),
+        "server" => Ok(ParsedCommand::Server),
+        "encryption-key" => {
+            let sub = if args.trim().is_empty() {
+                None
+            } else {
+                Some(args.trim().to_string())
+            };
+            Ok(ParsedCommand::EncryptionKey { sub })
+        }
+        "reset" => {
+            let target = args.trim().to_lowercase();
+            if target.is_empty() {
+                Err(ParseError {
+                    message: "Usage: /reset credentials|data|all".to_string(),
+                })
+            } else if !["credentials", "data", "all"].contains(&target.as_str()) {
+                Err(ParseError {
+                    message: format!(
+                        "Unknown reset target: '{}'. Use: credentials, data, or all",
+                        target
+                    ),
+                })
+            } else {
+                Ok(ParsedCommand::Reset { target })
+            }
+        }
         "status" => Ok(ParsedCommand::Status),
         "help" => Ok(ParsedCommand::Help),
         "quit" | "q" => Ok(ParsedCommand::Quit),

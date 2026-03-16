@@ -172,6 +172,26 @@ pub fn render_help_popup(frame: &mut Frame, app: &App, scroll: u16) {
             Span::styled("Sync with server", desc_style),
         ]),
         Line::from(vec![
+            Span::styled("    /force-sync  ", cmd_style),
+            Span::styled("Force full re-sync", desc_style),
+        ]),
+        Line::from(vec![
+            Span::styled("    /ping        ", cmd_style),
+            Span::styled("Check server availability", desc_style),
+        ]),
+        Line::from(vec![
+            Span::styled("    /server      ", cmd_style),
+            Span::styled("Show server info", desc_style),
+        ]),
+        Line::from(vec![
+            Span::styled("    /encryption-key", cmd_style),
+            Span::styled(" Show/update key", desc_style),
+        ]),
+        Line::from(vec![
+            Span::styled("    /reset       ", cmd_style),
+            Span::styled("credentials|data|all", desc_style),
+        ]),
+        Line::from(vec![
             Span::styled("    /status      ", cmd_style),
             Span::styled("Show connection status", desc_style),
         ]),
