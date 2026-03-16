@@ -1,6 +1,6 @@
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
-use axum::http::HeaderMap;
+use axum::http::{HeaderMap, Uri};
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -28,8 +28,9 @@ impl FromRequestParts<AppState> for AuthUser {
         Self: 'c,
     {
         Box::pin(async move {
-            let headers = &parts.headers;
-            let token = extract_bearer_token(headers).ok_or(ServerError::Unauthorized)?;
+            let token = extract_bearer_token(&parts.headers)
+                .or_else(|| extract_query_token(&parts.uri))
+                .ok_or(ServerError::Unauthorized)?;
 
             let session = sqlx::query_as::<_, (Uuid,)>(
                 "SELECT user_id FROM sessions WHERE token = $1 AND expires_at > $2",
@@ -49,4 +50,13 @@ impl FromRequestParts<AppState> for AuthUser {
 fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
     let value = headers.get("authorization")?.to_str().ok()?;
     value.strip_prefix("Bearer ").map(|token| token.to_string())
+}
+
+/// Fallback: extract token from `?token=...` query parameter (used by EventSource/SSE).
+fn extract_query_token(uri: &Uri) -> Option<String> {
+    uri.query().and_then(|q| {
+        q.split('&')
+            .find_map(|pair| pair.strip_prefix("token="))
+            .map(|t| t.to_string())
+    })
 }
