@@ -233,43 +233,35 @@ impl Taskbook {
         false
     }
 
-    fn filter_task(data: &mut HashMap<String, StorageItem>) {
-        data.retain(|_, item| item.is_task());
-    }
-
-    fn filter_note(data: &mut HashMap<String, StorageItem>) {
-        data.retain(|_, item| !item.is_task());
-    }
-
-    fn filter_starred(data: &mut HashMap<String, StorageItem>) {
-        data.retain(|_, item| item.is_starred());
-    }
-
-    fn filter_complete(data: &mut HashMap<String, StorageItem>) {
-        data.retain(|_, item| item.as_task().map(|t| t.is_complete).unwrap_or(false));
-    }
-
-    fn filter_in_progress(data: &mut HashMap<String, StorageItem>) {
-        data.retain(|_, item| item.as_task().map(|t| t.in_progress).unwrap_or(false));
-    }
-
-    fn filter_pending(data: &mut HashMap<String, StorageItem>) {
-        data.retain(|_, item| {
-            item.as_task()
-                .map(|t| !t.is_complete && !t.in_progress)
-                .unwrap_or(false)
-        });
+    fn filter_items(
+        data: &mut HashMap<String, StorageItem>,
+        predicate: impl Fn(&StorageItem) -> bool,
+    ) {
+        data.retain(|_, item| predicate(item));
     }
 
     fn filter_by_attributes(&self, attrs: &[String], data: &mut HashMap<String, StorageItem>) {
         for attr in attrs {
             match attr.as_str() {
-                "star" | "starred" => Self::filter_starred(data),
-                "done" | "checked" | "complete" => Self::filter_complete(data),
-                "progress" | "started" | "begun" => Self::filter_in_progress(data),
-                "pending" | "unchecked" | "incomplete" => Self::filter_pending(data),
-                "todo" | "task" | "tasks" => Self::filter_task(data),
-                "note" | "notes" => Self::filter_note(data),
+                "star" | "starred" => Self::filter_items(data, |item| item.is_starred()),
+                "done" | "checked" | "complete" => {
+                    Self::filter_items(data, |item| {
+                        item.as_task().is_some_and(|t| t.is_complete)
+                    });
+                }
+                "progress" | "started" | "begun" => {
+                    Self::filter_items(data, |item| {
+                        item.as_task().is_some_and(|t| t.in_progress)
+                    });
+                }
+                "pending" | "unchecked" | "incomplete" => {
+                    Self::filter_items(data, |item| {
+                        item.as_task()
+                            .is_some_and(|t| !t.is_complete && !t.in_progress)
+                    });
+                }
+                "todo" | "task" | "tasks" => Self::filter_items(data, |item| item.is_task()),
+                "note" | "notes" => Self::filter_items(data, |item| !item.is_task()),
                 _ => {}
             }
         }
@@ -446,56 +438,55 @@ impl Taskbook {
         self.save(&data)
     }
 
-    /// Check tasks without CLI output (for TUI)
+    /// Generic helper: validate IDs, apply a modifier to each item, and save.
+    /// Returns the list of validated IDs that were processed.
+    fn modify_items<F>(&self, ids: &[u64], modifier: F) -> Result<Vec<u64>>
+    where
+        F: Fn(&mut StorageItem),
+    {
+        let mut data = self.get_data()?;
+        let existing_ids = self.get_ids(&data);
+        let validated_ids = self.validate_ids_silent(ids, &existing_ids)?;
+
+        for id in &validated_ids {
+            if let Some(item) = data.get_mut(&id.to_string()) {
+                modifier(item);
+            }
+        }
+
+        self.save(&data)?;
+        Ok(validated_ids)
+    }
+
+    /// Check/uncheck tasks (for TUI and CLI)
     pub fn check_tasks_silent(&self, ids: &[u64]) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids_silent(ids, &existing_ids)?;
-
-        for id in validated_ids {
-            if let Some(item) = data.get_mut(&id.to_string()) {
-                if let Some(task) = item.as_task_mut() {
-                    task.in_progress = false;
-                    task.is_complete = !task.is_complete;
-                }
+        self.modify_items(ids, |item| {
+            if let Some(task) = item.as_task_mut() {
+                task.in_progress = false;
+                task.is_complete = !task.is_complete;
             }
-        }
-
-        self.save(&data)
+        })?;
+        Ok(())
     }
 
-    /// Begin tasks without CLI output (for TUI)
+    /// Begin/pause tasks (for TUI and CLI)
     pub fn begin_tasks_silent(&self, ids: &[u64]) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids_silent(ids, &existing_ids)?;
-
-        for id in validated_ids {
-            if let Some(item) = data.get_mut(&id.to_string()) {
-                if let Some(task) = item.as_task_mut() {
-                    task.is_complete = false;
-                    task.in_progress = !task.in_progress;
-                }
+        self.modify_items(ids, |item| {
+            if let Some(task) = item.as_task_mut() {
+                task.is_complete = false;
+                task.in_progress = !task.in_progress;
             }
-        }
-
-        self.save(&data)
+        })?;
+        Ok(())
     }
 
-    /// Star items without CLI output (for TUI)
+    /// Star/unstar items (for TUI and CLI)
     pub fn star_items_silent(&self, ids: &[u64]) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids_silent(ids, &existing_ids)?;
-
-        for id in validated_ids {
-            if let Some(item) = data.get_mut(&id.to_string()) {
-                let new_starred = !item.is_starred();
-                item.set_starred(new_starred);
-            }
-        }
-
-        self.save(&data)
+        self.modify_items(ids, |item| {
+            let new_starred = !item.is_starred();
+            item.set_starred(new_starred);
+        })?;
+        Ok(())
     }
 
     /// Delete items without CLI output (for TUI)
@@ -528,49 +519,35 @@ impl Taskbook {
         self.save_archive(&archive)
     }
 
-    /// Edit description without CLI output (for TUI)
+    /// Edit description (for TUI and CLI)
     pub fn edit_description_silent(&self, id: u64, new_desc: &str) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        self.validate_ids_silent(&[id], &existing_ids)?;
-
-        if let Some(item) = data.get_mut(&id.to_string()) {
-            item.set_description(new_desc.to_string());
-        }
-
-        self.save(&data)
+        let desc = new_desc.to_string();
+        self.modify_items(&[id], |item| {
+            item.set_description(desc.clone());
+        })?;
+        Ok(())
     }
 
-    /// Move to board without CLI output (for TUI)
+    /// Move to board (for TUI and CLI)
     pub fn move_boards_silent(&self, id: u64, boards: Vec<String>) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        self.validate_ids_silent(&[id], &existing_ids)?;
-
         let normalized: Vec<String> = boards
             .into_iter()
             .map(|b| board::normalize_board_name(&b))
             .collect();
-        if let Some(item) = data.get_mut(&id.to_string()) {
-            item.set_boards(normalized);
-        }
-
-        self.save(&data)
+        self.modify_items(&[id], |item| {
+            item.set_boards(normalized.clone());
+        })?;
+        Ok(())
     }
 
-    /// Update priority without CLI output (for TUI)
+    /// Update priority (for TUI and CLI)
     pub fn update_priority_silent(&self, id: u64, priority: u8) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        self.validate_ids_silent(&[id], &existing_ids)?;
-
-        if let Some(item) = data.get_mut(&id.to_string()) {
+        self.modify_items(&[id], |item| {
             if let Some(task) = item.as_task_mut() {
                 task.priority = priority;
             }
-        }
-
-        self.save(&data)
+        })?;
+        Ok(())
     }
 
     /// Clear completed without CLI output (for TUI)
@@ -812,18 +789,19 @@ impl Taskbook {
     }
 
     pub fn check_tasks(&self, ids: &[u64]) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
+        // Capture state before modification for rendering
+        let data_before = self.get_data()?;
+        self.check_tasks_silent(ids)?;
+        let data_after = self.get_data()?;
+
+        let existing_ids = self.get_ids(&data_before);
         let validated_ids = self.validate_ids(ids, &existing_ids)?;
 
         let mut checked = Vec::new();
         let mut unchecked = Vec::new();
-
         for id in &validated_ids {
-            if let Some(item) = data.get_mut(&id.to_string()) {
-                if let Some(task) = item.as_task_mut() {
-                    task.in_progress = false;
-                    task.is_complete = !task.is_complete;
+            if let Some(item) = data_after.get(&id.to_string()) {
+                if let Some(task) = item.as_task() {
                     if task.is_complete {
                         checked.push(*id);
                     } else {
@@ -833,25 +811,24 @@ impl Taskbook {
             }
         }
 
-        self.save(&data)?;
         self.render.mark_complete(&checked);
         self.render.mark_incomplete(&unchecked);
         Ok(())
     }
 
     pub fn begin_tasks(&self, ids: &[u64]) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
+        let data_before = self.get_data()?;
+        self.begin_tasks_silent(ids)?;
+        let data_after = self.get_data()?;
+
+        let existing_ids = self.get_ids(&data_before);
         let validated_ids = self.validate_ids(ids, &existing_ids)?;
 
         let mut started = Vec::new();
         let mut paused = Vec::new();
-
         for id in &validated_ids {
-            if let Some(item) = data.get_mut(&id.to_string()) {
-                if let Some(task) = item.as_task_mut() {
-                    task.is_complete = false;
-                    task.in_progress = !task.in_progress;
+            if let Some(item) = data_after.get(&id.to_string()) {
+                if let Some(task) = item.as_task() {
                     if task.in_progress {
                         started.push(*id);
                     } else {
@@ -861,24 +838,15 @@ impl Taskbook {
             }
         }
 
-        self.save(&data)?;
         self.render.mark_started(&started);
         self.render.mark_paused(&paused);
         Ok(())
     }
 
     pub fn delete_items(&self, ids: &[u64]) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
+        let existing_ids = self.get_ids(&self.get_data()?);
         let validated_ids = self.validate_ids(ids, &existing_ids)?;
-
-        for id in &validated_ids {
-            if let Some(item) = data.remove(&id.to_string()) {
-                self.save_item_to_archive(item)?;
-            }
-        }
-
-        self.save(&data)?;
+        self.delete_items_silent(&validated_ids)?;
         self.render.success_delete(&validated_ids);
         Ok(())
     }
@@ -1070,34 +1038,26 @@ impl Taskbook {
     }
 
     pub fn restore_items(&self, ids: &[u64]) -> Result<()> {
-        let mut archive = self.get_archive()?;
+        let archive = self.get_archive()?;
         let archive_ids = self.get_ids(&archive);
         let validated_ids = self.validate_ids(ids, &archive_ids)?;
-
-        for id in &validated_ids {
-            if let Some(item) = archive.remove(&id.to_string()) {
-                self.save_item_to_storage(item)?;
-            }
-        }
-
-        self.save_archive(&archive)?;
+        self.restore_items_silent(&validated_ids)?;
         self.render.success_restore(&validated_ids);
         Ok(())
     }
 
     pub fn star_items(&self, ids: &[u64]) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
+        let data_before = self.get_data()?;
+        let existing_ids = self.get_ids(&data_before);
         let validated_ids = self.validate_ids(ids, &existing_ids)?;
+        self.star_items_silent(&validated_ids)?;
+        let data_after = self.get_data()?;
 
         let mut starred = Vec::new();
         let mut unstarred = Vec::new();
-
         for id in &validated_ids {
-            if let Some(item) = data.get_mut(&id.to_string()) {
-                let new_starred = !item.is_starred();
-                item.set_starred(new_starred);
-                if new_starred {
+            if let Some(item) = data_after.get(&id.to_string()) {
+                if item.is_starred() {
                     starred.push(*id);
                 } else {
                     unstarred.push(*id);
@@ -1105,7 +1065,6 @@ impl Taskbook {
             }
         }
 
-        self.save(&data)?;
         self.render.mark_starred(&starred);
         self.render.mark_unstarred(&unstarred);
         Ok(())
@@ -1258,31 +1217,28 @@ impl Taskbook {
         Ok(())
     }
 
-    /// Update tags without CLI output (for TUI)
+    /// Update tags (for TUI and CLI)
     pub fn update_tags_silent(
         &self,
         id: u64,
         add_tags: &[String],
         remove_tags: &[String],
     ) -> Result<()> {
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        self.validate_ids_silent(&[id], &existing_ids)?;
-
-        if let Some(item) = data.get_mut(&id.to_string()) {
+        let add = add_tags.to_vec();
+        let remove = remove_tags.to_vec();
+        self.modify_items(&[id], |item| {
             let mut current_tags: Vec<String> = item.tags().to_vec();
 
-            current_tags.retain(|t| !remove_tags.iter().any(|r| t.eq_ignore_ascii_case(r)));
+            current_tags.retain(|t| !remove.iter().any(|r| t.eq_ignore_ascii_case(r)));
 
-            for tag in add_tags {
+            for tag in &add {
                 if !current_tags.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
                     current_tags.push(tag.clone());
                 }
             }
 
             item.set_tags(current_tags);
-        }
-
-        self.save(&data)
+        })?;
+        Ok(())
     }
 }
