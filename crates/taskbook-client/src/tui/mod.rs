@@ -152,6 +152,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
             event::Event::Key(key) => {
                 actions::handle_key_event(app, key)?;
             }
+            event::Event::Mouse(mouse) => {
+                actions::handle_mouse_event(app, mouse)?;
+            }
             event::Event::Tick => {
                 app.tick();
             }

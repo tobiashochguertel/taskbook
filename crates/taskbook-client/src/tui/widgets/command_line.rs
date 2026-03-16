@@ -68,13 +68,26 @@ fn render_input(frame: &mut Frame, app: &App, area: Rect) {
 
     let cursor_style = Style::default().bg(Color::White).fg(Color::Black);
     let prompt_style = app.theme.info.add_modifier(Modifier::BOLD);
+    let ghost_style = Style::default().fg(Color::Rgb(80, 80, 100));
 
-    let line = Line::from(vec![
+    // Generate ghost text hint for recognized commands
+    let ghost_text = get_ghost_text(input);
+
+    let mut spans = vec![
         Span::styled("  > ", prompt_style),
         Span::raw(before),
         Span::styled(cursor_char.to_string(), cursor_style),
         Span::raw(after),
-    ]);
+    ];
+
+    // Show ghost text after user input if there's space
+    if let Some(ref ghost) = ghost_text {
+        if cursor == char_count && app.command_line.suggestions.is_empty() {
+            spans.push(Span::styled(ghost.as_str(), ghost_style));
+        }
+    }
+
+    let line = Line::from(spans);
 
     frame.render_widget(Paragraph::new(line), area);
 }
@@ -90,6 +103,17 @@ fn render_confirm(frame: &mut Frame, app: &App, area: Rect, action: &PendingActi
             }
         }
         PendingAction::Clear => "Clear all completed tasks?".to_string(),
+        PendingAction::Reset { target } => {
+            format!(
+                "Reset {}?",
+                match target.as_str() {
+                    "credentials" => "saved credentials",
+                    "data" => "all local data",
+                    "all" => "ALL data and credentials",
+                    _ => &target,
+                }
+            )
+        }
     };
 
     let bold = Style::default().add_modifier(Modifier::BOLD);
@@ -196,4 +220,37 @@ pub fn render_autocomplete(frame: &mut Frame, app: &App, content_area: Rect) {
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, dropdown_area);
+}
+
+/// Get ghost text hint for a slash command based on current input
+fn get_ghost_text(input: &str) -> Option<String> {
+    if !input.starts_with('/') {
+        return None;
+    }
+
+    let parts: Vec<&str> = input.splitn(2, ' ').collect();
+    let cmd = parts[0][1..].to_lowercase();
+    let has_args = parts.len() > 1;
+
+    // Only show ghost text when user has typed the command and a space
+    if !has_args {
+        // Show full hint after command name if it's a complete command
+        return match cmd.as_str() {
+            "task" => Some(" @board description +tag".into()),
+            "note" => Some(" @board title +tag".into()),
+            "edit" => Some(" @<id> new description".into()),
+            "move" => Some(" @<id> @board".into()),
+            "delete" => Some(" @<id> [@<id>...]".into()),
+            "search" => Some(" <term>".into()),
+            "priority" => Some(" @<id> 1-3".into()),
+            "check" | "star" | "begin" => Some(" @<id> [@<id>...]".into()),
+            "tag" => Some(" @<id> +add -remove".into()),
+            "rename-board" => Some(" @\"old\" @\"new\"".into()),
+            "encryption-key" => Some(" [set <base64-key>]".into()),
+            "reset" => Some(" credentials|data|all".into()),
+            _ => None,
+        };
+    }
+
+    None
 }

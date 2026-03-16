@@ -532,12 +532,6 @@ export function BoardPage() {
             <Search size={18} />
           </button>
 
-          <ConnectionIndicator
-            syncState={syncState}
-            lastSyncTime={lastSyncTime}
-            syncError={syncError}
-          />
-
           <span
             className="hidden md:inline text-xs md:text-sm"
             style={{ color: "var(--color-text-muted)" }}
@@ -550,20 +544,36 @@ export function BoardPage() {
             )}
           </span>
 
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="flex items-center justify-center cursor-pointer border-none rounded-md"
-            style={{
-              color: "var(--color-text-muted)",
-              background: "none",
-              width: 44,
-              height: 44,
-            }}
-            title="Refresh"
-          >
-            <RefreshCw size={16} className={isUpdating ? "animate-spin" : ""} />
-          </button>
+          <div className="flex items-center gap-1">
+            <ConnectionIndicator
+              syncState={syncState}
+              lastSyncTime={lastSyncTime}
+              syncError={syncError}
+            />
+
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="flex items-center justify-center cursor-pointer border-none rounded-md transition-colors"
+              style={{
+                color: "var(--color-text-muted)",
+                background: "none",
+                width: 44,
+                height: 44,
+              }}
+              title="Sync with server"
+              aria-label="Sync with server"
+            >
+              <RefreshCw
+                size={16}
+                className={
+                  syncState === "syncing" || isUpdating
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+            </button>
+          </div>
 
           {/* Logout only on desktop (mobile uses drawer) */}
           {!isMobile && (

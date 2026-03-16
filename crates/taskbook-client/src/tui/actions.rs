@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
 use crate::editor;
 use crate::error::Result;
@@ -52,6 +52,27 @@ fn handle_confirm_key(app: &mut App, key: KeyEvent) -> Result<()> {
                     }
                     PendingAction::Clear => {
                         clear_completed(app)?;
+                    }
+                    PendingAction::Reset { target } => {
+                        let mut msgs = Vec::new();
+                        if (target == "credentials" || target == "all")
+                            && crate::credentials::Credentials::delete().is_ok()
+                        {
+                            msgs.push("credentials");
+                        }
+                        if target == "data" || target == "all" {
+                            app.items.clear();
+                            app.display_order.clear();
+                            msgs.push("data");
+                        }
+                        if msgs.is_empty() {
+                            app.set_status("Nothing to reset".to_string(), StatusKind::Info);
+                        } else {
+                            app.set_status(
+                                format!("✔ Reset: {}", msgs.join(", ")),
+                                StatusKind::Success,
+                            );
+                        }
                     }
                 }
             }
@@ -321,6 +342,172 @@ fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
             app.set_status("Syncing...".to_string(), StatusKind::Info);
             app.refresh_items()?;
             app.set_status("✔ Synced".to_string(), StatusKind::Success);
+        }
+        ParsedCommand::ForceSync => {
+            app.set_status("Force syncing...".to_string(), StatusKind::Info);
+            app.items.clear();
+            app.refresh_items()?;
+            let count = app.items.len();
+            app.set_status(
+                format!("✔ Force synced ({count} items)"),
+                StatusKind::Success,
+            );
+        }
+        ParsedCommand::Ping => {
+            let config = crate::config::Config::load_or_default();
+            if !config.sync.enabled {
+                app.set_status(
+                    "✗ Sync not enabled (local mode)".to_string(),
+                    StatusKind::Error,
+                );
+            } else {
+                let url = config.sync.server_url.clone();
+                let start = std::time::Instant::now();
+                match reqwest::blocking::Client::new()
+                    .get(format!("{}/health", url))
+                    .timeout(std::time::Duration::from_secs(5))
+                    .send()
+                {
+                    Ok(resp) if resp.status().is_success() => {
+                        let ms = start.elapsed().as_millis();
+                        app.set_status(
+                            format!("✔ Server reachable ({ms}ms) — {url}"),
+                            StatusKind::Success,
+                        );
+                    }
+                    Ok(resp) => {
+                        let ms = start.elapsed().as_millis();
+                        app.set_status(
+                            format!("⚠ Server responded {} ({ms}ms) — {url}", resp.status()),
+                            StatusKind::Error,
+                        );
+                    }
+                    Err(e) => {
+                        app.set_status(format!("✗ Server unreachable — {e}"), StatusKind::Error);
+                    }
+                }
+            }
+        }
+        ParsedCommand::Server => {
+            let config = crate::config::Config::load_or_default();
+            let mode = if config.sync.enabled {
+                "remote"
+            } else {
+                "local"
+            };
+            let mut parts = vec![format!("Mode: {mode}")];
+            if config.sync.enabled {
+                parts.push(format!("Server: {}", config.sync.server_url));
+            }
+            if let Ok(Some(creds)) = crate::credentials::Credentials::load() {
+                parts.push(format!(
+                    "Encryption: {}",
+                    if creds.encryption_key.is_empty() {
+                        "not set"
+                    } else {
+                        "configured"
+                    }
+                ));
+                parts.push(format!(
+                    "Session: {}",
+                    if creds.token.is_empty() {
+                        "no token"
+                    } else {
+                        "active"
+                    }
+                ));
+            }
+            app.set_status(parts.join(" │ "), StatusKind::Info);
+        }
+        ParsedCommand::EncryptionKey { sub } => {
+            if let Some(sub) = sub {
+                if sub.starts_with("set ") {
+                    let key = sub.strip_prefix("set ").unwrap().trim();
+                    if key.is_empty() {
+                        app.set_status(
+                            "Usage: /encryption-key set <base64-key>".to_string(),
+                            StatusKind::Error,
+                        );
+                    } else {
+                        use base64::Engine;
+                        match base64::engine::general_purpose::STANDARD.decode(key) {
+                            Ok(bytes) if bytes.len() == 32 => {
+                                if let Ok(Some(mut creds)) = crate::credentials::Credentials::load()
+                                {
+                                    creds.encryption_key = key.to_string();
+                                    if creds.save().is_ok() {
+                                        app.set_status(
+                                            "✔ Encryption key updated".to_string(),
+                                            StatusKind::Success,
+                                        );
+                                    } else {
+                                        app.set_status(
+                                            "✗ Failed to save credentials".to_string(),
+                                            StatusKind::Error,
+                                        );
+                                    }
+                                } else {
+                                    app.set_status(
+                                        "✗ No credentials file found".to_string(),
+                                        StatusKind::Error,
+                                    );
+                                }
+                            }
+                            Ok(bytes) => {
+                                app.set_status(
+                                    format!("✗ Key must be 32 bytes (got {} bytes)", bytes.len()),
+                                    StatusKind::Error,
+                                );
+                            }
+                            Err(_) => {
+                                app.set_status(
+                                    "✗ Invalid base64 encoding".to_string(),
+                                    StatusKind::Error,
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    app.set_status(
+                        "Usage: /encryption-key [set <base64-key>]".to_string(),
+                        StatusKind::Error,
+                    );
+                }
+            } else {
+                // Show current encryption key status
+                if let Ok(Some(creds)) = crate::credentials::Credentials::load() {
+                    if !creds.encryption_key.is_empty() {
+                        use base64::Engine;
+                        let hash = if let Ok(bytes) =
+                            base64::engine::general_purpose::STANDARD.decode(&creds.encryption_key)
+                        {
+                            format!("{:x}{:x}{:x}...", bytes[0], bytes[1], bytes[2])
+                        } else {
+                            "invalid".to_string()
+                        };
+                        app.set_status(
+                            format!("Encryption key: configured (hash: {hash})"),
+                            StatusKind::Info,
+                        );
+                    } else {
+                        app.set_status("Encryption key: not set".to_string(), StatusKind::Info);
+                    }
+                } else {
+                    app.set_status("No credentials found".to_string(), StatusKind::Error);
+                }
+            }
+        }
+        ParsedCommand::Reset { target } => {
+            let msg = match target.as_str() {
+                "credentials" => "Delete saved credentials (token + encryption key)?",
+                "data" => "Clear all local cached data?",
+                "all" => "Reset ALL local data and credentials?",
+                _ => unreachable!(),
+            };
+            app.command_line.pending_confirm = Some(PendingAction::Reset {
+                target: target.clone(),
+            });
+            app.set_status(msg.to_string(), StatusKind::Info);
         }
         ParsedCommand::Status => {
             let config = crate::config::Config::load_or_default();
@@ -723,5 +910,59 @@ fn edit_note_external(app: &mut App, id: u64) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// Handle a mouse event
+pub fn handle_mouse_event(app: &mut App, mouse: MouseEvent) -> Result<()> {
+    match mouse.kind {
+        MouseEventKind::Down(MouseButton::Left) => {
+            let row = mouse.row;
+            let terminal_height = app.content_height + 3; // header + status + command line
+
+            // Click on command line area (last 2 rows)
+            if row >= terminal_height.saturating_sub(2) {
+                if !app.command_line.focused {
+                    app.activate_command_line("/");
+                }
+                return Ok(());
+            }
+
+            // Click in content area — map row to item index
+            // Row 0 = title bar, content starts at row 1
+            if row >= 1 && row < terminal_height.saturating_sub(2) {
+                let content_row = (row - 1) as usize;
+                if content_row < app.display_order.len() {
+                    let now = std::time::Instant::now();
+                    let was_selected = app.selected_index == content_row;
+                    app.selected_index = content_row;
+
+                    if was_selected {
+                        if let Some(last) = app.last_click_time {
+                            if now.duration_since(last).as_millis() < 400 {
+                                // Double-click — open note in editor
+                                if let Some(item) = app.selected_item() {
+                                    if !item.is_task() {
+                                        let id = item.id();
+                                        edit_note_external(app, id)?;
+                                    }
+                                }
+                                app.last_click_time = None;
+                                return Ok(());
+                            }
+                        }
+                    }
+                    app.last_click_time = Some(now);
+                }
+            }
+        }
+        MouseEventKind::ScrollDown => {
+            app.select_next();
+        }
+        MouseEventKind::ScrollUp => {
+            app.select_previous();
+        }
+        _ => {}
+    }
     Ok(())
 }

@@ -91,6 +91,8 @@ pub struct App {
     pub history_index: Option<usize>,
     /// Saved input before browsing history
     pub history_saved_input: String,
+    /// Last mouse click time (for double-click detection)
+    pub last_click_time: Option<Instant>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +152,7 @@ pub enum SuggestionKind {
 pub enum PendingAction {
     Delete { ids: Vec<u64> },
     Clear,
+    Reset { target: String },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -209,6 +212,7 @@ impl App {
             command_history: Vec::new(),
             history_index: None,
             history_saved_input: String::new(),
+            last_click_time: None,
             cached_stats: Stats {
                 percent: 0,
                 complete: 0,
