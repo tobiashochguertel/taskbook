@@ -167,6 +167,14 @@ pub fn render_help_popup(frame: &mut Frame, app: &App, scroll: u16) {
             Span::styled("    /rename-board", cmd_style),
             Span::styled(" @\"old\" @\"new\"", desc_style),
         ]),
+        Line::from(vec![
+            Span::styled("    /sync        ", cmd_style),
+            Span::styled("Sync with server", desc_style),
+        ]),
+        Line::from(vec![
+            Span::styled("    /status      ", cmd_style),
+            Span::styled("Show connection status", desc_style),
+        ]),
         Line::from(""),
         Line::from(vec![
             Span::styled("    Tab          ", key_style),

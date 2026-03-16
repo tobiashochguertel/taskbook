@@ -317,6 +317,21 @@ fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
             };
             app.set_status(msg.to_string(), StatusKind::Info);
         }
+        ParsedCommand::Sync => {
+            app.set_status("Syncing...".to_string(), StatusKind::Info);
+            app.refresh_items()?;
+            app.set_status("✔ Synced".to_string(), StatusKind::Success);
+        }
+        ParsedCommand::Status => {
+            let config = crate::config::Config::load_or_default();
+            let mode = if config.sync.enabled { "remote" } else { "local" };
+            let server = if config.sync.enabled {
+                format!(" ({})", config.sync.server_url)
+            } else {
+                String::new()
+            };
+            app.set_status(format!("Mode: {mode}{server}"), StatusKind::Info);
+        }
         ParsedCommand::Help => {
             app.popup = Some(PopupState::Help { scroll: 0 });
         }

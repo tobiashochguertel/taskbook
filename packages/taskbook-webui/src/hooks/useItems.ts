@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type EncryptedItemData, type ItemsMap } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { decrypt, deriveKey, encrypt } from "../lib/crypto";
 import { normalizeItem, type StorageItem } from "../lib/types";
+
+export type SyncState = "idle" | "syncing" | "success" | "error";
 
 async function decryptItems(
   items: ItemsMap,
@@ -54,6 +56,9 @@ export function useItems() {
 
   const [items, setItems] = useState<Record<string, StorageItem>>({});
   const [decrypting, setDecrypting] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>("idle");
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     if (rawQuery.data?.items) {
@@ -61,6 +66,9 @@ export function useItems() {
       decryptItems(rawQuery.data.items, encryptionKey).then((decrypted) => {
         setItems(decrypted);
         setDecrypting(false);
+        setSyncState("success");
+        setLastSyncTime(new Date());
+        setSyncError(null);
       });
     }
   }, [rawQuery.data, encryptionKey]);
@@ -76,7 +84,23 @@ export function useItems() {
       }
       return api.putItems(token, encrypted);
     },
+    onMutate: async (updatedItems) => {
+      // Optimistic update — show changes immediately
+      const previous = { ...items };
+      setItems(updatedItems);
+      setSyncState("syncing");
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previous) setItems(context.previous);
+      setSyncState("error");
+      setSyncError(_err instanceof Error ? _err.message : "Sync failed");
+    },
     onSuccess: () => {
+      setSyncState("success");
+      setLastSyncTime(new Date());
+      setSyncError(null);
       queryClient.invalidateQueries({ queryKey: ["items-raw"] });
     },
   });
@@ -89,6 +113,9 @@ export function useItems() {
     refetch: rawQuery.refetch,
     updateItems: updateMutation.mutate,
     isUpdating: updateMutation.isPending,
+    syncState,
+    lastSyncTime,
+    syncError,
   };
 }
 
@@ -131,6 +158,14 @@ export function useArchive() {
         encrypted[id] = await encryptItem(item, encryptionKey);
       }
       return api.putArchive(token, encrypted);
+    },
+    onMutate: async (updatedItems) => {
+      const previous = { ...archiveItems };
+      setArchiveItems(updatedItems);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) setArchiveItems(context.previous);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["archive-raw"] });

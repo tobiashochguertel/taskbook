@@ -42,8 +42,14 @@ pub fn render_stats_line(frame: &mut Frame, app: &App, area: Rect) {
     if app.config.display_progress_overview {
         let stats = app.get_stats();
 
-        let mut spans = vec![
-            Span::raw("  "),
+        let mut spans = vec![Span::raw("  ")];
+
+        // Sync mode indicator
+        if app.config.sync.enabled {
+            spans.push(Span::styled("● ", Style::default().fg(Color::Green)));
+        }
+
+        spans.extend(vec![
             Span::styled(format!("{}%", stats.percent), app.theme.success),
             Span::styled(" done", app.theme.muted),
             Span::styled(" | ", app.theme.muted),
@@ -58,7 +64,7 @@ pub fn render_stats_line(frame: &mut Frame, app: &App, area: Rect) {
             Span::styled(" · ", app.theme.muted),
             Span::styled(format!("{}", stats.notes), app.theme.info),
             Span::styled(" notes", app.theme.muted),
-        ];
+        ]);
 
         // Append key hints on the right
         append_key_hints(app, &mut spans);

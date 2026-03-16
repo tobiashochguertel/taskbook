@@ -285,6 +285,117 @@ pub fn login_sso(server_url: Option<&str>, encryption_key: Option<&str>) -> Resu
     Ok(())
 }
 
+/// Log in via SSO for headless/remote hosts (no browser or localhost needed).
+///
+/// Instead of starting a local callback server, this flow directs the user to
+/// open the OIDC login URL on any device. The server will show a token page
+/// where the user copies the token and encryption key, then pastes them back
+/// into the CLI prompts.
+pub fn login_sso_manual(server_url: Option<&str>, encryption_key: Option<&str>) -> Result<()> {
+    println!("{}", "SSO Login (Manual / Headless)".bold());
+    println!();
+
+    let config = Config::load_or_default();
+    let server = match server_url {
+        Some(s) => s.to_string(),
+        None if config.sync.enabled => {
+            println!("Using server: {}", config.sync.server_url);
+            config.sync.server_url.clone()
+        }
+        None => prompt("Server URL: ")?,
+    };
+
+    let login_url = format!(
+        "{}/auth/oidc/login",
+        server.trim_end_matches('/')
+    );
+
+    println!("Open this URL in any browser (on any device):");
+    println!();
+    println!("  {}", login_url.bright_cyan().underline());
+    println!();
+    println!(
+        "{}",
+        "After authenticating, the server will show your session token."
+            .dimmed()
+    );
+    println!(
+        "{}",
+        "Copy the values shown and paste them below.".dimmed()
+    );
+    println!();
+
+    let token = prompt("Session token: ")?;
+    if token.is_empty() {
+        return Err(TaskbookError::Auth("no token provided".to_string()));
+    }
+
+    let key = if let Some(k) = encryption_key {
+        k.to_string()
+    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
+        println!(
+            "{}",
+            "Reusing existing encryption key from previous login.".dimmed()
+        );
+        existing.encryption_key
+    } else {
+        let k = prompt("Encryption key (leave blank to generate new): ")?;
+        if k.is_empty() {
+            let raw_key = taskbook_common::encryption::generate_key();
+            let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+            println!(
+                "{}",
+                "Generated new encryption key (save this — it cannot be recovered):".yellow()
+            );
+            println!("  {}", key_b64.bright_white().bold());
+            println!();
+            key_b64
+        } else {
+            k
+        }
+    };
+
+    let creds = Credentials {
+        server_url: server.clone(),
+        token,
+        encryption_key: key,
+    };
+    creds.save()?;
+
+    // Store key hash on server for cross-device sync indication
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    let _ = client.post_json(
+        "/api/v1/me/encryption-key",
+        &serde_json::json!({"encryption_key": &creds.encryption_key}),
+    );
+
+    // Enable sync
+    let mut sync_cfg = Config::load_or_default();
+    sync_cfg.enable_sync(&server)?;
+
+    // Verify the token works
+    match client.get_me() {
+        Ok(me) => {
+            println!(
+                "{}",
+                format!("✅ Logged in as {} ({})", me.username, me.email)
+                    .green()
+                    .bold()
+            );
+        }
+        Err(_) => {
+            println!("{}", "Token saved.".green().bold());
+            println!(
+                "{}",
+                "Warning: could not verify token — it may be expired.".yellow()
+            );
+        }
+    }
+    println!("{}", "Sync is now enabled.".green());
+
+    Ok(())
+}
+
 /// Save a session token directly (non-interactive).
 ///
 /// Designed for OIDC login workflows where the user obtains a token from the

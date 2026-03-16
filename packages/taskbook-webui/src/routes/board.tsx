@@ -32,8 +32,17 @@ import {
 
 export function BoardPage() {
   const { token, encryptionKey, setCredentials, logout } = useAuth();
-  const { items, itemsList, isLoading, refetch, updateItems, isUpdating } =
-    useItems();
+  const {
+    items,
+    itemsList,
+    isLoading,
+    refetch,
+    updateItems,
+    isUpdating,
+    syncState,
+    lastSyncTime,
+    syncError,
+  } = useItems();
   const { archiveItems, archiveList, updateArchive, isArchiveLoading } =
     useArchive();
   const user = useUser();
@@ -79,6 +88,23 @@ export function BoardPage() {
       return next;
     });
   }, []);
+
+  const deleteBoard = useCallback(
+    (name: string) => {
+      // Remove from custom boards
+      setCustomBoards((prev) => {
+        const next = prev.filter((b) => b !== name);
+        localStorage.setItem("tb_custom_boards", JSON.stringify(next));
+        return next;
+      });
+      // Switch away if we're on the deleted board
+      if (currentBoard === name) {
+        const remaining = boards.filter((b) => b !== name);
+        setSelectedBoard(remaining[0] ?? null);
+      }
+    },
+    [currentBoard, boards],
+  );
 
   const boardItems = useMemo(() => {
     return itemsList.filter((item) => item.boards.includes(currentBoard));
@@ -424,6 +450,8 @@ export function BoardPage() {
               onOpenArchive={() => setShowArchiveView(true)}
               onLogout={logout}
               onAddBoard={addCustomBoard}
+              onDeleteBoard={deleteBoard}
+              itemBoards={itemBoards}
               username={user.data?.username}
               email={user.data?.email}
             />
@@ -504,7 +532,11 @@ export function BoardPage() {
             <Search size={18} />
           </button>
 
-          <ConnectionIndicator />
+          <ConnectionIndicator
+            syncState={syncState}
+            lastSyncTime={lastSyncTime}
+            syncError={syncError}
+          />
 
           <span
             className="hidden md:inline text-xs md:text-sm"

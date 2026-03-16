@@ -77,6 +77,7 @@ const HELP_TEXT: &str = r#"
       --register         Register a new server account
       --login            Log in to an existing account (password-based)
       --login-sso        Log in via browser SSO (OIDC) — opens browser automatically
+      --login-sso-manual Log in via SSO for headless/remote hosts (no browser needed)
       --logout           Log out and delete credentials
       --status           Show sync status
       --reset-encryption-key  Reset encryption key (WARNING: deletes all data)
@@ -221,6 +222,10 @@ struct Cli {
     #[arg(long)]
     login_sso: bool,
 
+    /// Log in via SSO for headless/remote hosts — shows URL to open on any device
+    #[arg(long)]
+    login_sso_manual: bool,
+
     /// Log out and delete credentials
     #[arg(long)]
     logout: bool,
@@ -299,6 +304,14 @@ fn main() {
 
     if cli.login_sso {
         if let Err(e) = auth::login_sso(cli.server.as_deref(), cli.key.as_deref()) {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        return;
+    }
+
+    if cli.login_sso_manual {
+        if let Err(e) = auth::login_sso_manual(cli.server.as_deref(), cli.key.as_deref()) {
             eprintln!("Error: {}", e);
             process::exit(1);
         }

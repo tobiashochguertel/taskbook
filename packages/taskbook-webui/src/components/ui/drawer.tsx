@@ -5,6 +5,7 @@ import {
   Menu,
   Plus,
   Settings,
+  Trash2,
   User,
   X,
 } from "lucide-react";
@@ -18,6 +19,8 @@ interface DrawerProps {
   onOpenArchive: () => void;
   onLogout: () => void;
   onAddBoard: (name: string) => void;
+  onDeleteBoard: (name: string) => void;
+  itemBoards: string[];
   username?: string;
   email?: string;
 }
@@ -49,12 +52,15 @@ export function Drawer({
   onOpenArchive,
   onLogout,
   onAddBoard,
+  onDeleteBoard,
+  itemBoards,
   username,
   email,
 }: DrawerProps) {
   const [open, setOpen] = useState(false);
   const [showNewBoard, setShowNewBoard] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -161,31 +167,87 @@ export function Drawer({
               >
                 Boards
               </div>
-              {boards.map((board) => (
-                <button
-                  key={board}
-                  type="button"
-                  onClick={() => {
-                    onSelectBoard(board);
-                    setOpen(false);
-                  }}
-                  className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
-                  style={{
-                    color:
-                      board === currentBoard
-                        ? "var(--color-accent)"
-                        : "var(--color-text)",
-                    backgroundColor:
-                      board === currentBoard
-                        ? "var(--color-surface-hover)"
-                        : "transparent",
-                    minHeight: 44,
-                  }}
-                >
-                  <Folder size={16} />
-                  <span className="text-sm">@{board}</span>
-                </button>
-              ))}
+              {boards.map((board) => {
+                const hasItems = itemBoards.includes(board);
+                return (
+                  <div
+                    key={board}
+                    className="flex items-center group"
+                    style={{
+                      backgroundColor:
+                        board === currentBoard
+                          ? "var(--color-surface-hover)"
+                          : "transparent",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectBoard(board);
+                        setOpen(false);
+                      }}
+                      className="flex items-center gap-3 flex-1 text-left px-4 py-3 cursor-pointer border-none"
+                      style={{
+                        color:
+                          board === currentBoard
+                            ? "var(--color-accent)"
+                            : "var(--color-text)",
+                        background: "none",
+                        minHeight: 44,
+                      }}
+                    >
+                      <Folder size={16} />
+                      <span className="text-sm">@{board}</span>
+                    </button>
+                    {confirmDelete === board ? (
+                      <div className="flex items-center gap-1 pr-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDeleteBoard(board);
+                            setConfirmDelete(null);
+                          }}
+                          className="px-2 py-1 text-xs rounded cursor-pointer border-none"
+                          style={{
+                            backgroundColor: "var(--color-error)",
+                            color: "white",
+                          }}
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(null)}
+                          className="px-2 py-1 text-xs rounded cursor-pointer border-none"
+                          style={{
+                            backgroundColor: "var(--color-surface-hover)",
+                            color: "var(--color-text-muted)",
+                          }}
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      !hasItems && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(board)}
+                          className="opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer border-none rounded-md mr-2 transition-opacity"
+                          style={{
+                            color: "var(--color-text-muted)",
+                            background: "none",
+                            width: 32,
+                            height: 32,
+                          }}
+                          title={`Delete board @${board}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )
+                    )}
+                  </div>
+                );
+              })}
 
               {/* New board */}
               {showNewBoard ? (

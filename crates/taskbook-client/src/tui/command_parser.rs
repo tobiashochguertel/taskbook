@@ -55,6 +55,8 @@ pub enum ParsedCommand {
     Journal,
     Sort,
     HideDone,
+    Sync,
+    Status,
     Help,
     Quit,
 }
@@ -112,6 +114,8 @@ pub fn parse_command(input: &str) -> Result<ParsedCommand, ParseError> {
         "journal" => Ok(ParsedCommand::Journal),
         "sort" => Ok(ParsedCommand::Sort),
         "hide-done" => Ok(ParsedCommand::HideDone),
+        "sync" | "refresh" => Ok(ParsedCommand::Sync),
+        "status" => Ok(ParsedCommand::Status),
         "help" => Ok(ParsedCommand::Help),
         "quit" | "q" => Ok(ParsedCommand::Quit),
         _ => Err(ParseError {

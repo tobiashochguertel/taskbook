@@ -22,6 +22,8 @@ const COMMANDS: &[(&str, &str)] = &[
     ("journal", "Switch to journal view"),
     ("sort", "Cycle sort method"),
     ("hide-done", "Toggle hide completed"),
+    ("sync", "Sync with server"),
+    ("status", "Show connection status"),
     ("help", "Show help"),
     ("quit", "Quit application"),
 ];
