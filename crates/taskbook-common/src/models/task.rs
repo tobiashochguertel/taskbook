@@ -6,13 +6,13 @@ use crate::board;
 /// A task item with completion status and priority
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
-    #[serde(rename = "_id")]
+    #[serde(rename = "_id", alias = "id")]
     pub id: u64,
 
-    #[serde(rename = "_date")]
+    #[serde(rename = "_date", alias = "date")]
     pub date: String,
 
-    #[serde(rename = "_timestamp")]
+    #[serde(rename = "_timestamp", alias = "timestamp")]
     pub timestamp: i64,
 
     #[serde(rename = "_isTask")]
@@ -126,5 +126,21 @@ mod tests {
 
         let mid = Task::new(3, "Test".to_string(), vec!["My Board".to_string()], 2);
         assert_eq!(mid.priority, 2);
+    }
+
+    #[test]
+    fn test_deserialize_with_underscore_fields() {
+        let json = r#"{"_id":1,"_date":"Mon Mar 16","_timestamp":1234,"_isTask":true,"description":"test","isStarred":false,"isComplete":false,"inProgress":false,"priority":1,"boards":["a"],"tags":[]}"#;
+        let task: Task = serde_json::from_str(json).unwrap();
+        assert_eq!(task.id, 1);
+        assert_eq!(task.date, "Mon Mar 16");
+    }
+
+    #[test]
+    fn test_deserialize_with_legacy_fields() {
+        let json = r#"{"id":1,"date":"Mon Mar 16","timestamp":1234,"_isTask":true,"description":"test","isStarred":false,"isComplete":false,"inProgress":false,"priority":1,"boards":["a"],"tags":[]}"#;
+        let task: Task = serde_json::from_str(json).unwrap();
+        assert_eq!(task.id, 1);
+        assert_eq!(task.date, "Mon Mar 16");
     }
 }

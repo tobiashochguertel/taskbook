@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type EncryptedItemData, type ItemsMap } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { decrypt, deriveKey, encrypt } from "../lib/crypto";
-import type { StorageItem } from "../lib/types";
+import { normalizeItem, type StorageItem } from "../lib/types";
 
 async function decryptItems(
   items: ItemsMap,
@@ -23,7 +23,8 @@ async function decryptItems(
   for (const [id, encrypted] of Object.entries(items)) {
     try {
       const plaintext = await decrypt(encrypted.data, encrypted.nonce, key);
-      result[id] = JSON.parse(plaintext);
+      const raw = JSON.parse(plaintext);
+      result[id] = normalizeItem(raw);
     } catch (e) {
       console.error(`Failed to decrypt item ${id}:`, e);
     }

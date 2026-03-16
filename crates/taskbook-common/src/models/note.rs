@@ -8,13 +8,13 @@ use crate::board;
 /// A note item (non-task)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
-    #[serde(rename = "_id")]
+    #[serde(rename = "_id", alias = "id")]
     pub id: u64,
 
-    #[serde(rename = "_date")]
+    #[serde(rename = "_date", alias = "date")]
     pub date: String,
 
-    #[serde(rename = "_timestamp")]
+    #[serde(rename = "_timestamp", alias = "timestamp")]
     pub timestamp: i64,
 
     #[serde(rename = "_isTask")]

@@ -238,3 +238,35 @@ impl StorageItem {
         }
     }
 }
+
+#[cfg(test)]
+mod storage_item_tests {
+    use super::*;
+
+    #[test]
+    fn test_storage_item_deserialize_legacy_format() {
+        let json = r#"{"id":1,"date":"Mon Mar 16","timestamp":1234,"_isTask":true,"description":"test","isStarred":false,"isComplete":false,"inProgress":false,"priority":1,"boards":["a"],"tags":[]}"#;
+        let item: StorageItem = serde_json::from_str(json).unwrap();
+        assert_eq!(item.id(), 1);
+    }
+
+    #[test]
+    fn test_storage_item_deserialize_underscore_format() {
+        let json = r#"{"_id":1,"_date":"Mon Mar 16","_timestamp":1234,"_isTask":true,"description":"test","isStarred":false,"isComplete":false,"inProgress":false,"priority":1,"boards":["a"],"tags":[]}"#;
+        let item: StorageItem = serde_json::from_str(json).unwrap();
+        assert_eq!(item.id(), 1);
+    }
+}
+
+#[cfg(test)]
+mod from_slice_tests {
+    use super::*;
+
+    #[test]
+    fn test_storage_item_from_slice_legacy() {
+        let json = br#"{"id":1,"date":"Mon, Mar 16","timestamp":1773653975750,"_isTask":true,"description":"Hello World!","isStarred":false,"isComplete":false,"inProgress":false,"priority":1,"boards":["a"],"tags":[]}"#;
+        let item: StorageItem = serde_json::from_slice(json).unwrap();
+        assert_eq!(item.id(), 1);
+        assert_eq!(item.description(), "Hello World!");
+    }
+}

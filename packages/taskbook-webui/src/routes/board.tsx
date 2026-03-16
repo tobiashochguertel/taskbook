@@ -103,7 +103,7 @@ export function BoardPage() {
     (item: StorageItem) => {
       if (!isTask(item)) return;
       const updated = { ...items };
-      updated[String(item.id)] = { ...item, isComplete: !item.isComplete };
+      updated[String(item._id)] = { ...item, isComplete: !item.isComplete };
       updateItems(updated);
     },
     [items, updateItems],
@@ -112,7 +112,7 @@ export function BoardPage() {
   const toggleStar = useCallback(
     (item: StorageItem) => {
       const updated = { ...items };
-      updated[String(item.id)] = { ...item, isStarred: !item.isStarred };
+      updated[String(item._id)] = { ...item, isStarred: !item.isStarred };
       updateItems(updated);
     },
     [items, updateItems],
@@ -121,7 +121,7 @@ export function BoardPage() {
   const deleteItem = useCallback(
     (item: StorageItem) => {
       const updated = { ...items };
-      delete updated[String(item.id)];
+      delete updated[String(item._id)];
       updateItems(updated);
     },
     [items, updateItems],
@@ -130,7 +130,7 @@ export function BoardPage() {
   const editItem = useCallback(
     (item: StorageItem, newDescription: string) => {
       const updated = { ...items };
-      updated[String(item.id)] = { ...item, description: newDescription };
+      updated[String(item._id)] = { ...item, description: newDescription };
       updateItems(updated);
     },
     [items, updateItems],
@@ -140,7 +140,7 @@ export function BoardPage() {
     (item: StorageItem) => {
       if (!isTask(item)) return;
       const updated = { ...items };
-      updated[String(item.id)] = { ...item, inProgress: !item.inProgress };
+      updated[String(item._id)] = { ...item, inProgress: !item.inProgress };
       updateItems(updated);
     },
     [items, updateItems],
@@ -150,7 +150,7 @@ export function BoardPage() {
     (item: StorageItem, newPriority: number) => {
       if (!isTask(item)) return;
       const updated = { ...items };
-      updated[String(item.id)] = { ...item, priority: newPriority };
+      updated[String(item._id)] = { ...item, priority: newPriority };
       updateItems(updated);
     },
     [items, updateItems],
@@ -159,7 +159,7 @@ export function BoardPage() {
   const moveToBoard = useCallback(
     (item: StorageItem, targetBoard: string) => {
       const updated = { ...items };
-      updated[String(item.id)] = { ...item, boards: [targetBoard] };
+      updated[String(item._id)] = { ...item, boards: [targetBoard] };
       updateItems(updated);
     },
     [items, updateItems],
@@ -168,7 +168,7 @@ export function BoardPage() {
   const updateTags = useCallback(
     (item: StorageItem, newTags: string[]) => {
       const updated = { ...items };
-      updated[String(item.id)] = { ...item, tags: newTags };
+      updated[String(item._id)] = { ...item, tags: newTags };
       updateItems(updated);
     },
     [items, updateItems],
@@ -177,9 +177,9 @@ export function BoardPage() {
   const archiveItem = useCallback(
     (item: StorageItem) => {
       const updatedItems = { ...items };
-      delete updatedItems[String(item.id)];
+      delete updatedItems[String(item._id)];
       updateItems(updatedItems);
-      const updatedArchive = { ...archiveItems, [String(item.id)]: item };
+      const updatedArchive = { ...archiveItems, [String(item._id)]: item };
       updateArchive(updatedArchive);
     },
     [items, archiveItems, updateItems, updateArchive],
@@ -188,9 +188,9 @@ export function BoardPage() {
   const restoreItem = useCallback(
     (item: StorageItem) => {
       const updatedArchive = { ...archiveItems };
-      delete updatedArchive[String(item.id)];
+      delete updatedArchive[String(item._id)];
       updateArchive(updatedArchive);
-      const updatedItems = { ...items, [String(item.id)]: item };
+      const updatedItems = { ...items, [String(item._id)]: item };
       updateItems(updatedItems);
     },
     [items, archiveItems, updateItems, updateArchive],
@@ -205,8 +205,8 @@ export function BoardPage() {
     const updatedItems = { ...items };
     const updatedArchive = { ...archiveItems };
     for (const item of completedItems) {
-      delete updatedItems[String(item.id)];
-      updatedArchive[String(item.id)] = item;
+      delete updatedItems[String(item._id)];
+      updatedArchive[String(item._id)] = item;
     }
     updateItems(updatedItems);
     updateArchive(updatedArchive);
@@ -221,15 +221,15 @@ export function BoardPage() {
 
   const createTask = useCallback(
     (description: string, board: string, priority: number) => {
-      const maxId = itemsList.reduce((max, i) => Math.max(max, i.id), 0);
+      const maxId = itemsList.reduce((max, i) => Math.max(max, i._id), 0);
       const newTask: TaskItem = {
-        id: maxId + 1,
-        date: new Date().toLocaleDateString("en-US", {
+        _id: maxId + 1,
+        _date: new Date().toLocaleDateString("en-US", {
           weekday: "short",
           month: "short",
           day: "numeric",
         }),
-        timestamp: Date.now(),
+        _timestamp: Date.now(),
         _isTask: true,
         description,
         isStarred: false,
@@ -239,7 +239,7 @@ export function BoardPage() {
         boards: [board],
         tags: [],
       };
-      const updated = { ...items, [String(newTask.id)]: newTask };
+      const updated = { ...items, [String(newTask._id)]: newTask };
       updateItems(updated);
     },
     [items, itemsList, updateItems],
@@ -247,22 +247,22 @@ export function BoardPage() {
 
   const createNote = useCallback(
     (description: string, board: string) => {
-      const maxId = itemsList.reduce((max, i) => Math.max(max, i.id), 0);
+      const maxId = itemsList.reduce((max, i) => Math.max(max, i._id), 0);
       const newNote: NoteItem = {
-        id: maxId + 1,
-        date: new Date().toLocaleDateString("en-US", {
+        _id: maxId + 1,
+        _date: new Date().toLocaleDateString("en-US", {
           weekday: "short",
           month: "short",
           day: "numeric",
         }),
-        timestamp: Date.now(),
+        _timestamp: Date.now(),
         _isTask: false,
         description,
         isStarred: false,
         boards: [board],
         tags: [],
       };
-      const updated = { ...items, [String(newNote.id)]: newNote };
+      const updated = { ...items, [String(newNote._id)]: newNote };
       updateItems(updated);
     },
     [items, itemsList, updateItems],
@@ -372,7 +372,7 @@ export function BoardPage() {
           ) : (
             <div className="space-y-2">
               {archiveList.map((item) => (
-                <div key={item.id} className="flex items-center gap-2">
+                <div key={item._id} className="flex items-center gap-2">
                   <div className="flex-1">
                     <TaskCard
                       item={item}
@@ -783,7 +783,7 @@ function MobileColumn({
         ) : (
           items.map((item) => (
             <TaskCard
-              key={item.id}
+              key={item._id}
               item={item}
               onToggleComplete={() => onToggleComplete(item)}
               onToggleStar={() => onToggleStar(item)}
@@ -872,7 +872,7 @@ function Column({
         ) : (
           items.map((item) => (
             <TaskCard
-              key={item.id}
+              key={item._id}
               item={item}
               onToggleComplete={() => onToggleComplete(item)}
               onToggleStar={() => onToggleStar(item)}

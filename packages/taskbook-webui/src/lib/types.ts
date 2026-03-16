@@ -1,7 +1,7 @@
 export interface TaskItem {
-  id: number;
-  date: string;
-  timestamp: number;
+  _id: number;
+  _date: string;
+  _timestamp: number;
   _isTask: true;
   description: string;
   isStarred: boolean;
@@ -13,9 +13,9 @@ export interface TaskItem {
 }
 
 export interface NoteItem {
-  id: number;
-  date: string;
-  timestamp: number;
+  _id: number;
+  _date: string;
+  _timestamp: number;
   _isTask: false;
   description: string;
   body?: string;
@@ -32,6 +32,18 @@ export function isTask(item: StorageItem): item is TaskItem {
 
 export function isNote(item: StorageItem): item is NoteItem {
   return item._isTask === false;
+}
+
+/** Normalize legacy items that used `id`/`date`/`timestamp` without underscore prefix */
+export function normalizeItem<T extends StorageItem>(raw: Record<string, unknown>): T {
+  const item = { ...raw } as Record<string, unknown>;
+  if ("id" in item && !("_id" in item)) item._id = item.id;
+  if ("date" in item && !("_date" in item)) item._date = item.date;
+  if ("timestamp" in item && !("_timestamp" in item)) item._timestamp = item.timestamp;
+  delete item.id;
+  delete item.date;
+  delete item.timestamp;
+  return item as T;
 }
 
 export type BoardItems = Record<string, StorageItem[]>;

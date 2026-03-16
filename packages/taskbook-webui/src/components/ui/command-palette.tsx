@@ -97,7 +97,7 @@ export function CommandPalette({
             >
               {items.slice(0, 20).map((item) => (
                 <Command.Item
-                  key={item.id}
+                  key={item._id}
                   value={item.description}
                   className="px-4 py-3 rounded-lg text-sm md:text-base cursor-pointer flex items-center gap-3"
                   style={{ color: "var(--color-text)" }}
