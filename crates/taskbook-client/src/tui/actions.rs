@@ -324,7 +324,11 @@ fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
         }
         ParsedCommand::Status => {
             let config = crate::config::Config::load_or_default();
-            let mode = if config.sync.enabled { "remote" } else { "local" };
+            let mode = if config.sync.enabled {
+                "remote"
+            } else {
+                "local"
+            };
             let server = if config.sync.enabled {
                 format!(" ({})", config.sync.server_url)
             } else {

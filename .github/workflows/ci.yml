@@ -17,7 +17,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -30,7 +30,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create empty WebUI dist (rust-embed needs the dir)
         run: mkdir -p packages/taskbook-webui/dist && touch packages/taskbook-webui/dist/.gitkeep
@@ -49,7 +49,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create empty WebUI dist (rust-embed needs the dir)
         run: mkdir -p packages/taskbook-webui/dist && touch packages/taskbook-webui/dist/.gitkeep
