@@ -34,7 +34,7 @@ export function isNote(item: StorageItem): item is NoteItem {
   return item._isTask === false;
 }
 
-/** Normalize legacy items that used `id`/`date`/`timestamp` without underscore prefix */
+/** Normalize legacy items: remap old field names and ensure required arrays exist */
 export function normalizeItem<T extends StorageItem>(raw: Record<string, unknown>): T {
   const item = { ...raw } as Record<string, unknown>;
   if ("id" in item && !("_id" in item)) item._id = item.id;
@@ -43,6 +43,8 @@ export function normalizeItem<T extends StorageItem>(raw: Record<string, unknown
   delete item.id;
   delete item.date;
   delete item.timestamp;
+  if (!Array.isArray(item.boards)) item.boards = ["My Board"];
+  if (!Array.isArray(item.tags)) item.tags = [];
   return item as T;
 }
 
