@@ -305,10 +305,7 @@ pub fn login_sso_manual(server_url: Option<&str>, encryption_key: Option<&str>) 
         None => prompt("Server URL: ")?,
     };
 
-    let login_url = format!(
-        "{}/auth/oidc/login",
-        server.trim_end_matches('/')
-    );
+    let login_url = format!("{}/auth/oidc/login", server.trim_end_matches('/'));
 
     println!("Open this URL in any browser (on any device):");
     println!();
@@ -316,13 +313,9 @@ pub fn login_sso_manual(server_url: Option<&str>, encryption_key: Option<&str>) 
     println!();
     println!(
         "{}",
-        "After authenticating, the server will show your session token."
-            .dimmed()
+        "After authenticating, the server will show your session token.".dimmed()
     );
-    println!(
-        "{}",
-        "Copy the values shown and paste them below.".dimmed()
-    );
+    println!("{}", "Copy the values shown and paste them below.".dimmed());
     println!();
 
     let token = prompt("Session token: ")?;
@@ -561,8 +554,7 @@ pub fn status() -> Result<()> {
     }
 
     // Show encryption key status
-    if let Some(ref creds) =
-        Credentials::load()?.filter(|c| c.server_url == config.sync.server_url)
+    if let Some(ref creds) = Credentials::load()?.filter(|c| c.server_url == config.sync.server_url)
     {
         if !creds.encryption_key.is_empty() {
             println!("Encryption:  {}", "configured".green());
