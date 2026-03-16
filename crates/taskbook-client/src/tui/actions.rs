@@ -9,6 +9,14 @@ use super::autocomplete;
 use super::command_parser::{self, ParsedCommand};
 use super::input_handler::{handle_text_input, InputResult};
 
+/// Resolve a board name from an optional override, the current filter, or the default.
+fn resolve_board(board: Option<String>, app: &App) -> String {
+    board
+        .map(|b| board::normalize_board_name(&b))
+        .or_else(|| app.filter.board_filter.clone())
+        .unwrap_or_else(|| "my board".to_string())
+}
+
 /// Handle a key event
 pub fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<()> {
     // 1. Help popup → scroll with j/k/arrows, dismiss with q/Esc/other
@@ -218,10 +226,7 @@ fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
             priority,
             tags,
         } => {
-            let board_name = board
-                .map(|b| board::normalize_board_name(&b))
-                .or_else(|| app.filter.board_filter.clone())
-                .unwrap_or_else(|| "my board".to_string());
+            let board_name = resolve_board(board, app);
             app.taskbook.create_task_direct_with_tags(
                 vec![board_name.clone()],
                 description,
@@ -237,10 +242,7 @@ fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
             description,
             tags,
         } => {
-            let board_name = board
-                .map(|b| board::normalize_board_name(&b))
-                .or_else(|| app.filter.board_filter.clone())
-                .unwrap_or_else(|| "my board".to_string());
+            let board_name = resolve_board(board, app);
             app.taskbook.create_note_direct_with_tags(
                 vec![board_name.clone()],
                 description,
