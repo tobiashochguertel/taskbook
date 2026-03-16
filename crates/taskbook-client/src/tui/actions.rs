@@ -842,10 +842,10 @@ fn update_tags(app: &mut App, id: u64, add: &[String], remove: &[String]) -> Res
 }
 
 fn clear_completed(app: &mut App) -> Result<()> {
-    let count = app.taskbook.clear_silent()?;
+    let cleared_ids = app.taskbook.clear_silent()?;
     app.refresh_items()?;
     app.set_status(
-        format!("Cleared {} completed task(s)", count),
+        format!("Cleared {} completed task(s)", cleared_ids.len()),
         StatusKind::Success,
     );
     Ok(())
