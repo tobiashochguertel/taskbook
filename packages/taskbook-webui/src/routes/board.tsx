@@ -674,7 +674,7 @@ export function BoardPage() {
         onKeyReset={() => {
           if (token) {
             api.resetEncryptionKey(token);
-            setCredentials(token, "");
+            setCredentials(token, null);
           }
         }}
         onUsernameChange={(newName) => {

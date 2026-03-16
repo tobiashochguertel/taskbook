@@ -32,8 +32,23 @@ function _concat(a: Uint8Array, b: Uint8Array): Uint8Array {
   return result;
 }
 
-export async function deriveKey(encryptionKeyHex: string): Promise<CryptoKey> {
-  const keyData = hexToBytes(encryptionKeyHex);
+const HEX_RE = /^[0-9a-fA-F]+$/;
+
+/** Parse a key string that may be hex (64 chars) or base64 (44 chars) into raw bytes. */
+function parseKeyBytes(key: string): Uint8Array {
+  const trimmed = key.trim();
+  if (trimmed.length === 64 && HEX_RE.test(trimmed)) {
+    return hexToBytes(trimmed);
+  }
+  // base64-encoded 32-byte key (standard or URL-safe)
+  return base64Decode(trimmed);
+}
+
+export async function deriveKey(encryptionKey: string): Promise<CryptoKey> {
+  const keyData = parseKeyBytes(encryptionKey);
+  if (keyData.length !== 32) {
+    throw new Error(`Invalid key length: expected 32 bytes, got ${keyData.length}`);
+  }
   return crypto.subtle.importKey("raw", keyData, "AES-GCM", false, [
     "encrypt",
     "decrypt",
