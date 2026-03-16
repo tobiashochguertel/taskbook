@@ -28,8 +28,8 @@ pub fn render_timeline_view(frame: &mut Frame, app: &App, area: Rect) {
     // Sort dates (newest first)
     let mut dates: Vec<String> = grouped.keys().cloned().collect();
     dates.sort_by(|a, b| {
-        let items_a = grouped.get(a).unwrap();
-        let items_b = grouped.get(b).unwrap();
+        let items_a = grouped.get(a).expect("key from grouped.keys()");
+        let items_b = grouped.get(b).expect("key from grouped.keys()");
         let ts_a = items_a.first().map(|i| i.timestamp()).unwrap_or(0);
         let ts_b = items_b.first().map(|i| i.timestamp()).unwrap_or(0);
         ts_b.cmp(&ts_a)
@@ -39,7 +39,7 @@ pub fn render_timeline_view(frame: &mut Frame, app: &App, area: Rect) {
 
     let mut first_group = true;
     for date in dates {
-        let date_items = grouped.get(&date).unwrap();
+        let date_items = grouped.get(&date).expect("key from sorted dates");
 
         // Count stats for this date (always count all tasks)
         let total_tasks: usize = date_items.iter().filter(|i| i.is_task()).count();

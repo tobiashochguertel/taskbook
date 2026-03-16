@@ -251,8 +251,7 @@ pub(super) fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
 /// Handle the /encryption-key command and its subcommands.
 fn handle_encryption_key(app: &mut App, sub: Option<String>) -> Result<()> {
     if let Some(sub) = sub {
-        if sub.starts_with("set ") {
-            let key = sub.strip_prefix("set ").unwrap().trim();
+        if let Some(key) = sub.strip_prefix("set ").map(str::trim) {
             if key.is_empty() {
                 app.set_status(
                     "Usage: /encryption-key set <base64-key>".to_string(),

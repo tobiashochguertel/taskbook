@@ -408,6 +408,7 @@ impl App {
     pub fn cycle_sort_method(&mut self) {
         self.sort_method = self.sort_method.next();
         self.config.sort_method = self.sort_method;
+        // Best-effort: config persistence is non-critical
         let _ = self.config.save();
         self.update_display_order();
     }
@@ -416,6 +417,7 @@ impl App {
     pub fn toggle_hide_completed(&mut self) {
         self.filter.hide_completed = !self.filter.hide_completed;
         self.config.display_complete_tasks = !self.filter.hide_completed;
+        // Best-effort: config persistence is non-critical
         let _ = self.config.save();
         self.update_display_order();
         // Clamp selection
@@ -523,7 +525,7 @@ impl App {
             self.view = view;
             self.selected_index = 0;
 
-            // Persist the view choice
+            // Best-effort: config persistence is non-critical
             self.config.default_view = view;
             let _ = self.config.save();
 

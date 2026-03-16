@@ -252,7 +252,8 @@ fn render_token_page(token: &str, is_new_user: bool, encryption_key: Option<&str
         String::new()
     };
 
-    let _ = is_new_user;
+    // is_new_user is currently unused but reserved for future first-login UX
+    let _is_new_user = is_new_user;
 
     let cli_cmd =
         "tb --login --server https://taskbook.hochguertel.work --username &lt;your-username&gt;";
