@@ -7,22 +7,27 @@ use crate::config::Config;
 use crate::directory::resolve_taskbook_directory;
 use crate::editor;
 use crate::error::{Result, TaskbookError};
-use crate::render::{Render, Stats};
+use crate::render::Stats;
 use crate::storage::{LocalStorage, RemoteStorage, StorageBackend};
 use taskbook_common::board::{self, DEFAULT_BOARD};
 use taskbook_common::{Note, StorageItem, Task};
 
-struct CreateOptions {
-    boards: Vec<String>,
-    description: String,
-    id: u64,
-    priority: u8,
-    tags: Vec<String>,
+/// Result of a toggle operation (check/begin/star).
+/// `on` contains IDs toggled to the active state, `off` to the inactive state.
+pub struct ToggleResult {
+    pub on: Vec<u64>,
+    pub off: Vec<u64>,
+}
+
+/// Result of an editor-based operation (create note, edit note).
+pub enum EditorResult {
+    Created(u64),
+    Edited(u64),
+    Cancelled,
 }
 
 pub struct Taskbook {
     storage: Box<dyn StorageBackend>,
-    render: Render,
 }
 
 impl Taskbook {
@@ -36,9 +41,7 @@ impl Taskbook {
             Box::new(LocalStorage::new(&resolved_dir)?)
         };
 
-        let render = Render::new(config);
-
-        Ok(Self { storage, render })
+        Ok(Self { storage })
     }
 
     fn get_data(&self) -> Result<HashMap<String, StorageItem>> {
@@ -71,12 +74,12 @@ impl Taskbook {
         ids.iter().filter(|id| seen.insert(**id)).copied().collect()
     }
 
-    fn get_ids(&self, data: &HashMap<String, StorageItem>) -> HashSet<u64> {
+    pub fn get_ids(&self, data: &HashMap<String, StorageItem>) -> HashSet<u64> {
         data.keys().filter_map(|k| k.parse::<u64>().ok()).collect()
     }
 
-    /// Validate IDs without rendering errors (for TUI/silent methods)
-    fn validate_ids_silent(
+    /// Validate IDs exist in data, returning deduplicated valid IDs.
+    pub fn validate_ids(
         &self,
         input_ids: &[u64],
         existing_ids: &HashSet<u64>,
@@ -96,25 +99,7 @@ impl Taskbook {
         Ok(unique_ids)
     }
 
-    fn validate_ids(&self, input_ids: &[u64], existing_ids: &HashSet<u64>) -> Result<Vec<u64>> {
-        if input_ids.is_empty() {
-            self.render.missing_id();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let unique_ids = self.remove_duplicates(input_ids);
-
-        for id in &unique_ids {
-            if !existing_ids.contains(id) {
-                self.render.invalid_id(*id);
-                return Err(TaskbookError::InvalidId(*id));
-            }
-        }
-
-        Ok(unique_ids)
-    }
-
-    fn get_boards(&self, data: &HashMap<String, StorageItem>) -> Vec<String> {
+    pub fn get_boards(&self, data: &HashMap<String, StorageItem>) -> Vec<String> {
         let mut boards = vec![DEFAULT_BOARD.to_string()];
 
         // Iterate items in ID order for deterministic board discovery
@@ -137,27 +122,7 @@ impl Taskbook {
         boards
     }
 
-    fn get_options(&self, input: &[String]) -> Result<CreateOptions> {
-        if input.is_empty() {
-            self.render.missing_desc();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let data = self.get_data()?;
-        let id = self.generate_id(&data);
-
-        let (boards, description, priority, tags) = board::parse_cli_input(input);
-
-        Ok(CreateOptions {
-            boards,
-            description,
-            id,
-            priority,
-            tags,
-        })
-    }
-
-    fn get_stats(&self, data: &HashMap<String, StorageItem>) -> Stats {
+    pub fn get_stats(&self, data: &HashMap<String, StorageItem>) -> Stats {
         let mut complete = 0;
         let mut in_progress = 0;
         let mut pending = 0;
@@ -193,7 +158,7 @@ impl Taskbook {
         }
     }
 
-    fn item_matches_terms(item: &StorageItem, terms: &[String]) -> bool {
+    pub fn item_matches_terms(item: &StorageItem, terms: &[String]) -> bool {
         for term in terms {
             let term_lower = term.to_lowercase();
 
@@ -267,7 +232,7 @@ impl Taskbook {
         }
     }
 
-    fn group_by_board<'a>(
+    pub fn group_by_board<'a>(
         &self,
         data: &'a HashMap<String, StorageItem>,
         boards: &[String],
@@ -285,7 +250,7 @@ impl Taskbook {
         grouped
     }
 
-    fn group_by_date<'a>(
+    pub fn group_by_date<'a>(
         &self,
         data: &'a HashMap<String, StorageItem>,
     ) -> HashMap<String, Vec<&'a StorageItem>> {
@@ -427,7 +392,7 @@ impl Taskbook {
     pub fn edit_note_body_silent(&self, id: u64, body: Option<String>) -> Result<()> {
         let mut data = self.get_data()?;
         let existing_ids = self.get_ids(&data);
-        self.validate_ids_silent(&[id], &existing_ids)?;
+        self.validate_ids(&[id], &existing_ids)?;
 
         if let Some(item) = data.get_mut(&id.to_string()) {
             if !item.set_note_body(body) {
@@ -446,7 +411,7 @@ impl Taskbook {
     {
         let mut data = self.get_data()?;
         let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids_silent(ids, &existing_ids)?;
+        let validated_ids = self.validate_ids(ids, &existing_ids)?;
 
         for id in &validated_ids {
             if let Some(item) = data.get_mut(&id.to_string()) {
@@ -489,34 +454,36 @@ impl Taskbook {
         Ok(())
     }
 
-    /// Delete items without CLI output (for TUI)
-    pub fn delete_items_silent(&self, ids: &[u64]) -> Result<()> {
+    /// Delete items, moving them to archive.
+    pub fn delete_items_silent(&self, ids: &[u64]) -> Result<Vec<u64>> {
         let mut data = self.get_data()?;
         let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids_silent(ids, &existing_ids)?;
+        let validated_ids = self.validate_ids(ids, &existing_ids)?;
 
-        for id in validated_ids {
+        for id in &validated_ids {
             if let Some(item) = data.remove(&id.to_string()) {
                 self.save_item_to_archive(item)?;
             }
         }
 
-        self.save(&data)
+        self.save(&data)?;
+        Ok(validated_ids)
     }
 
-    /// Restore items without CLI output (for TUI)
-    pub fn restore_items_silent(&self, ids: &[u64]) -> Result<()> {
+    /// Restore items from archive.
+    pub fn restore_items_silent(&self, ids: &[u64]) -> Result<Vec<u64>> {
         let mut archive = self.get_archive()?;
         let archive_ids = self.get_ids(&archive);
-        let validated_ids = self.validate_ids_silent(ids, &archive_ids)?;
+        let validated_ids = self.validate_ids(ids, &archive_ids)?;
 
-        for id in validated_ids {
+        for id in &validated_ids {
             if let Some(item) = archive.remove(&id.to_string()) {
                 self.save_item_to_storage(item)?;
             }
         }
 
-        self.save_archive(&archive)
+        self.save_archive(&archive)?;
+        Ok(validated_ids)
     }
 
     /// Edit description (for TUI and CLI)
@@ -550,8 +517,8 @@ impl Taskbook {
         Ok(())
     }
 
-    /// Clear completed without CLI output (for TUI)
-    pub fn clear_silent(&self) -> Result<usize> {
+    /// Clear completed tasks, moving them to archive. Returns deleted IDs.
+    pub fn clear_silent(&self) -> Result<Vec<u64>> {
         let data = self.get_data()?;
         let mut ids_to_delete: Vec<u64> = Vec::new();
 
@@ -566,10 +533,9 @@ impl Taskbook {
         }
 
         if ids_to_delete.is_empty() {
-            return Ok(0);
+            return Ok(vec![]);
         }
 
-        let count = ids_to_delete.len();
         let mut data = self.get_data()?;
         for id in &ids_to_delete {
             if let Some(item) = data.remove(&id.to_string()) {
@@ -577,14 +543,14 @@ impl Taskbook {
             }
         }
         self.save(&data)?;
-        Ok(count)
+        Ok(ids_to_delete)
     }
 
     /// Copy to clipboard without CLI output (for TUI)
     pub fn copy_to_clipboard_silent(&self, ids: &[u64]) -> Result<()> {
         let data = self.get_data()?;
         let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids_silent(ids, &existing_ids)?;
+        let validated_ids = self.validate_ids(ids, &existing_ids)?;
 
         let descriptions: Vec<String> = validated_ids
             .iter()
@@ -636,32 +602,15 @@ impl Taskbook {
         Ok(count)
     }
 
-    // Public API methods
+    // Public API methods (return data, no rendering)
 
-    pub fn create_note(&self, desc: &[String]) -> Result<()> {
-        let CreateOptions {
-            boards,
-            description,
-            id,
-            tags,
-            ..
-        } = self.get_options(desc)?;
-
-        if description.is_empty() {
-            self.render.missing_desc();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let note = Note::new_with_tags(id, description, boards, tags);
-        let mut data = self.get_data()?;
-        data.insert(id.to_string(), StorageItem::Note(note));
-        self.save(&data)?;
-        self.render.success_create(id, false);
-        Ok(())
+    /// Create a note, returning the created ID.
+    pub fn create_note(&self, boards: Vec<String>, description: String, tags: Vec<String>) -> Result<u64> {
+        self.create_note_direct_with_tags(boards, description, tags)
     }
 
-    /// Create a note using external editor
-    pub fn create_note_with_editor(&self) -> Result<()> {
+    /// Create a note using external editor, returning the result.
+    pub fn create_note_with_editor(&self) -> Result<EditorResult> {
         let content = editor::create_note_in_editor()?;
 
         match content {
@@ -676,41 +625,19 @@ impl Taskbook {
                 );
                 data.insert(id.to_string(), StorageItem::Note(note));
                 self.save(&data)?;
-                self.render.success_create(id, false);
-                Ok(())
+                Ok(EditorResult::Created(id))
             }
-            None => {
-                self.render.note_cancelled();
-                Ok(())
-            }
+            None => Ok(EditorResult::Cancelled),
         }
     }
 
-    /// Edit an existing note in external editor
-    pub fn edit_note_in_editor(&self, input: &[String]) -> Result<()> {
-        // Parse the ID from input (format: @<id>)
-        let targets: Vec<&String> = input.iter().filter(|x| x.starts_with('@')).collect();
-
-        if targets.is_empty() {
-            self.render.missing_id();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if targets.len() > 1 {
-            self.render.invalid_ids_number();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let target = targets[0];
-        let id_str = target.trim_start_matches('@');
-        let id: u64 = id_str.parse().map_err(|_| TaskbookError::InvalidId(0))?;
-
+    /// Edit an existing note in external editor, returning the result.
+    pub fn edit_note_in_editor(&self, id: u64) -> Result<EditorResult> {
         let data = self.get_data()?;
         let existing_ids = self.get_ids(&data);
         let validated_ids = self.validate_ids(&[id], &existing_ids)?;
         let id = validated_ids[0];
 
-        // Get the current note
         let item = data
             .get(&id.to_string())
             .ok_or(TaskbookError::InvalidId(id))?;
@@ -719,7 +646,6 @@ impl Taskbook {
             .as_note()
             .ok_or_else(|| TaskbookError::General("Item is not a note".to_string()))?;
 
-        // Open editor with current content
         let content = editor::edit_existing_note_in_editor(note.title(), note.body())?;
 
         match content {
@@ -730,49 +656,92 @@ impl Taskbook {
                     item.set_note_body(note_content.body);
                 }
                 self.save(&data)?;
-                self.render.success_edit(id);
-                Ok(())
+                Ok(EditorResult::Edited(id))
             }
-            None => {
-                self.render.note_cancelled();
-                Ok(())
-            }
+            None => Ok(EditorResult::Cancelled),
         }
     }
 
-    pub fn create_task(&self, desc: &[String]) -> Result<()> {
-        let CreateOptions {
-            boards,
-            description,
-            id,
-            priority,
-            tags,
-        } = self.get_options(desc)?;
-
-        if description.is_empty() {
-            self.render.missing_desc();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let task = Task::new_with_tags(id, description, boards, priority, tags);
-        let mut data = self.get_data()?;
-        data.insert(id.to_string(), StorageItem::Task(task));
-        self.save(&data)?;
-        self.render.success_create(id, true);
-        Ok(())
+    /// Create a task, returning the created ID.
+    pub fn create_task(&self, boards: Vec<String>, description: String, priority: u8, tags: Vec<String>) -> Result<u64> {
+        self.create_task_direct_with_tags(boards, description, priority, tags)
     }
 
-    pub fn copy_to_clipboard(&self, ids: &[u64]) -> Result<()> {
+    /// Check/uncheck tasks, returning which were toggled on/off.
+    pub fn check_tasks(&self, ids: &[u64]) -> Result<ToggleResult> {
+        self.check_tasks_silent(ids)?;
+        let data = self.get_data()?;
+
+        let mut on = Vec::new();
+        let mut off = Vec::new();
+        for id in ids {
+            if let Some(item) = data.get(&id.to_string()) {
+                if let Some(task) = item.as_task() {
+                    if task.is_complete {
+                        on.push(*id);
+                    } else {
+                        off.push(*id);
+                    }
+                }
+            }
+        }
+
+        Ok(ToggleResult { on, off })
+    }
+
+    /// Begin/pause tasks, returning which were toggled on/off.
+    pub fn begin_tasks(&self, ids: &[u64]) -> Result<ToggleResult> {
+        self.begin_tasks_silent(ids)?;
+        let data = self.get_data()?;
+
+        let mut on = Vec::new();
+        let mut off = Vec::new();
+        for id in ids {
+            if let Some(item) = data.get(&id.to_string()) {
+                if let Some(task) = item.as_task() {
+                    if task.in_progress {
+                        on.push(*id);
+                    } else {
+                        off.push(*id);
+                    }
+                }
+            }
+        }
+
+        Ok(ToggleResult { on, off })
+    }
+
+    /// Star/unstar items, returning which were toggled on/off.
+    pub fn star_items(&self, ids: &[u64]) -> Result<ToggleResult> {
+        self.star_items_silent(ids)?;
+        let data = self.get_data()?;
+
+        let mut on = Vec::new();
+        let mut off = Vec::new();
+        for id in ids {
+            if let Some(item) = data.get(&id.to_string()) {
+                if item.is_starred() {
+                    on.push(*id);
+                } else {
+                    off.push(*id);
+                }
+            }
+        }
+
+        Ok(ToggleResult { on, off })
+    }
+
+    /// Copy item descriptions to clipboard, returning copied IDs.
+    pub fn copy_to_clipboard(&self, ids: &[u64]) -> Result<Vec<u64>> {
         let data = self.get_data()?;
         let existing_ids = self.get_ids(&data);
         let validated_ids = self.validate_ids(ids, &existing_ids)?;
 
-        let mut descriptions = Vec::new();
-        for id in &validated_ids {
-            if let Some(item) = data.get(&id.to_string()) {
-                descriptions.push(item.description().to_string());
-            }
-        }
+        let descriptions: Vec<String> = validated_ids
+            .iter()
+            .filter_map(|id| data.get(&id.to_string()))
+            .map(|item| item.description().to_string())
+            .collect();
 
         if descriptions.is_empty() {
             return Err(TaskbookError::NoItemsToCopy);
@@ -784,162 +753,23 @@ impl Taskbook {
             .set_text(descriptions.join("\n"))
             .map_err(|e| TaskbookError::Clipboard(e.to_string()))?;
 
-        self.render.success_copy_to_clipboard(&validated_ids);
-        Ok(())
+        Ok(validated_ids)
     }
 
-    pub fn check_tasks(&self, ids: &[u64]) -> Result<()> {
-        // Capture state before modification for rendering
-        let data_before = self.get_data()?;
-        self.check_tasks_silent(ids)?;
-        let data_after = self.get_data()?;
-
-        let existing_ids = self.get_ids(&data_before);
-        let validated_ids = self.validate_ids(ids, &existing_ids)?;
-
-        let mut checked = Vec::new();
-        let mut unchecked = Vec::new();
-        for id in &validated_ids {
-            if let Some(item) = data_after.get(&id.to_string()) {
-                if let Some(task) = item.as_task() {
-                    if task.is_complete {
-                        checked.push(*id);
-                    } else {
-                        unchecked.push(*id);
-                    }
-                }
-            }
-        }
-
-        self.render.mark_complete(&checked);
-        self.render.mark_incomplete(&unchecked);
-        Ok(())
-    }
-
-    pub fn begin_tasks(&self, ids: &[u64]) -> Result<()> {
-        let data_before = self.get_data()?;
-        self.begin_tasks_silent(ids)?;
-        let data_after = self.get_data()?;
-
-        let existing_ids = self.get_ids(&data_before);
-        let validated_ids = self.validate_ids(ids, &existing_ids)?;
-
-        let mut started = Vec::new();
-        let mut paused = Vec::new();
-        for id in &validated_ids {
-            if let Some(item) = data_after.get(&id.to_string()) {
-                if let Some(task) = item.as_task() {
-                    if task.in_progress {
-                        started.push(*id);
-                    } else {
-                        paused.push(*id);
-                    }
-                }
-            }
-        }
-
-        self.render.mark_started(&started);
-        self.render.mark_paused(&paused);
-        Ok(())
-    }
-
-    pub fn delete_items(&self, ids: &[u64]) -> Result<()> {
-        let existing_ids = self.get_ids(&self.get_data()?);
-        let validated_ids = self.validate_ids(ids, &existing_ids)?;
-        self.delete_items_silent(&validated_ids)?;
-        self.render.success_delete(&validated_ids);
-        Ok(())
-    }
-
-    pub fn display_archive(&self) -> Result<()> {
-        let archive = self.get_archive()?;
-        let grouped = self.group_by_date(&archive);
-        self.render.display_by_date(&grouped);
-        Ok(())
-    }
-
-    pub fn display_by_board(&self) -> Result<()> {
+    /// Find items matching search terms, returning matching items.
+    pub fn find_items(&self, terms: &[String]) -> Result<HashMap<String, StorageItem>> {
         let data = self.get_data()?;
-        let boards = self.get_boards(&data);
-        let grouped = self.group_by_board(&data, &boards);
-        self.render.display_by_board(&grouped);
-        Ok(())
+        Ok(data
+            .into_iter()
+            .filter(|(_, item)| Self::item_matches_terms(item, terms))
+            .collect())
     }
 
-    pub fn display_by_date(&self) -> Result<()> {
-        let data = self.get_data()?;
-        let grouped = self.group_by_date(&data);
-        self.render.display_by_date(&grouped);
-        Ok(())
-    }
-
-    pub fn display_stats(&self) -> Result<()> {
-        let data = self.get_data()?;
-        let stats = self.get_stats(&data);
-        self.render.display_stats(&stats);
-        Ok(())
-    }
-
-    pub fn edit_description(&self, input: &[String]) -> Result<()> {
-        let targets: Vec<&String> = input.iter().filter(|x| x.starts_with('@')).collect();
-
-        if targets.is_empty() {
-            self.render.missing_id();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if targets.len() > 1 {
-            self.render.invalid_ids_number();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let target = targets[0];
-        let id_str = target.trim_start_matches('@');
-        let id: u64 = id_str.parse().map_err(|_| TaskbookError::InvalidId(0))?;
-
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids(&[id], &existing_ids)?;
-        let id = validated_ids[0];
-
-        let new_desc: String = input
-            .iter()
-            .filter(|x| *x != target)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(" ");
-
-        if new_desc.is_empty() {
-            self.render.missing_desc();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if let Some(item) = data.get_mut(&id.to_string()) {
-            item.set_description(new_desc);
-        }
-
-        self.save(&data)?;
-        self.render.success_edit(id);
-        Ok(())
-    }
-
-    pub fn find_items(&self, terms: &[String]) -> Result<()> {
-        let data = self.get_data()?;
-        let mut result: HashMap<String, StorageItem> = HashMap::new();
-
-        for (id, item) in &data {
-            if Self::item_matches_terms(item, terms) {
-                result.insert(id.clone(), item.clone());
-            }
-        }
-
-        let boards = self.get_boards(&result);
-        let grouped = self.group_by_board(&result, &boards);
-        self.render.display_by_board(&grouped);
-        Ok(())
-    }
-
-    pub fn list_by_attributes(&self, terms: &[String]) -> Result<()> {
+    /// Filter items by attributes/boards/tags, returning filtered data and display boards.
+    pub fn list_by_attributes(
+        &self,
+        terms: &[String],
+    ) -> Result<(HashMap<String, StorageItem>, Vec<String>)> {
         let data = self.get_data()?;
         let stored_boards = self.get_boards(&data);
 
@@ -968,7 +798,6 @@ impl Taskbook {
         let mut filtered_data = data.clone();
         self.filter_by_attributes(&attributes, &mut filtered_data);
 
-        // Filter by tags
         if !tag_filters.is_empty() {
             filtered_data.retain(|_, item| {
                 tag_filters.iter().all(|filter_tag| {
@@ -985,236 +814,7 @@ impl Taskbook {
             boards
         };
 
-        let grouped = self.group_by_board(&filtered_data, &display_boards);
-        self.render.display_by_board(&grouped);
-        Ok(())
-    }
-
-    pub fn move_boards(&self, input: &[String]) -> Result<()> {
-        let targets: Vec<&String> = input.iter().filter(|x| x.starts_with('@')).collect();
-
-        if targets.is_empty() {
-            self.render.missing_id();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if targets.len() > 1 {
-            self.render.invalid_ids_number();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let target = targets[0];
-        let id_str = target.trim_start_matches('@');
-        let id: u64 = id_str.parse().map_err(|_| TaskbookError::InvalidId(0))?;
-
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids(&[id], &existing_ids)?;
-        let id = validated_ids[0];
-
-        let mut boards: Vec<String> = Vec::new();
-        for word in input {
-            if word != target {
-                let normalized = board::normalize_board_name(word);
-                if !boards.iter().any(|b| board::board_eq(b, &normalized)) {
-                    boards.push(normalized);
-                }
-            }
-        }
-
-        if boards.is_empty() {
-            self.render.missing_boards();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if let Some(item) = data.get_mut(&id.to_string()) {
-            item.set_boards(boards.clone());
-        }
-
-        self.save(&data)?;
-        let display_boards: Vec<String> = boards.iter().map(|b| board::display_name(b)).collect();
-        self.render.success_move(id, &display_boards);
-        Ok(())
-    }
-
-    pub fn restore_items(&self, ids: &[u64]) -> Result<()> {
-        let archive = self.get_archive()?;
-        let archive_ids = self.get_ids(&archive);
-        let validated_ids = self.validate_ids(ids, &archive_ids)?;
-        self.restore_items_silent(&validated_ids)?;
-        self.render.success_restore(&validated_ids);
-        Ok(())
-    }
-
-    pub fn star_items(&self, ids: &[u64]) -> Result<()> {
-        let data_before = self.get_data()?;
-        let existing_ids = self.get_ids(&data_before);
-        let validated_ids = self.validate_ids(ids, &existing_ids)?;
-        self.star_items_silent(&validated_ids)?;
-        let data_after = self.get_data()?;
-
-        let mut starred = Vec::new();
-        let mut unstarred = Vec::new();
-        for id in &validated_ids {
-            if let Some(item) = data_after.get(&id.to_string()) {
-                if item.is_starred() {
-                    starred.push(*id);
-                } else {
-                    unstarred.push(*id);
-                }
-            }
-        }
-
-        self.render.mark_starred(&starred);
-        self.render.mark_unstarred(&unstarred);
-        Ok(())
-    }
-
-    pub fn update_priority(&self, input: &[String]) -> Result<()> {
-        let level = input
-            .iter()
-            .find(|x| matches!(x.as_str(), "1" | "2" | "3"))
-            .map(|s| s.parse::<u8>().unwrap());
-
-        let level = match level {
-            Some(l) => l,
-            None => {
-                self.render.invalid_priority();
-                return Err(TaskbookError::InvalidId(0));
-            }
-        };
-
-        let targets: Vec<&String> = input.iter().filter(|x| x.starts_with('@')).collect();
-
-        if targets.is_empty() {
-            self.render.missing_id();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if targets.len() > 1 {
-            self.render.invalid_ids_number();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let target = targets[0];
-        let id_str = target.trim_start_matches('@');
-        let id: u64 = id_str.parse().map_err(|_| TaskbookError::InvalidId(0))?;
-
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids(&[id], &existing_ids)?;
-        let id = validated_ids[0];
-
-        if let Some(item) = data.get_mut(&id.to_string()) {
-            if let Some(task) = item.as_task_mut() {
-                task.priority = level;
-            }
-        }
-
-        self.save(&data)?;
-        self.render.success_priority(id, level);
-        Ok(())
-    }
-
-    pub fn clear(&self) -> Result<()> {
-        let data = self.get_data()?;
-        let mut ids_to_delete: Vec<u64> = Vec::new();
-
-        for (id, item) in &data {
-            if let Some(task) = item.as_task() {
-                if task.is_complete {
-                    if let Ok(id) = id.parse::<u64>() {
-                        ids_to_delete.push(id);
-                    }
-                }
-            }
-        }
-
-        if ids_to_delete.is_empty() {
-            return Ok(());
-        }
-
-        // Delete items without the success message (we'll use success_clear instead)
-        let mut data = self.get_data()?;
-        for id in &ids_to_delete {
-            if let Some(item) = data.remove(&id.to_string()) {
-                self.save_item_to_archive(item)?;
-            }
-        }
-        self.save(&data)?;
-        self.render.success_clear(&ids_to_delete);
-        Ok(())
-    }
-
-    /// Update tags on an item from CLI input.
-    /// Format: `@<id> +tag1 +tag2 -tag3`
-    /// `+tag` adds a tag, `-tag` removes a tag.
-    pub fn update_tags(&self, input: &[String]) -> Result<()> {
-        let targets: Vec<&String> = input.iter().filter(|x| x.starts_with('@')).collect();
-
-        if targets.is_empty() {
-            self.render.missing_id();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if targets.len() > 1 {
-            self.render.invalid_ids_number();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let target = targets[0];
-        let id_str = target.trim_start_matches('@');
-        let id: u64 = id_str.parse().map_err(|_| TaskbookError::InvalidId(0))?;
-
-        let mut data = self.get_data()?;
-        let existing_ids = self.get_ids(&data);
-        let validated_ids = self.validate_ids(&[id], &existing_ids)?;
-        let id = validated_ids[0];
-
-        let mut add_tags: Vec<String> = Vec::new();
-        let mut remove_tags: Vec<String> = Vec::new();
-
-        for word in input {
-            if word == target {
-                continue;
-            }
-            if let Some(tag) = word.strip_prefix('+') {
-                let normalized = board::normalize_tag(&format!("+{}", tag));
-                if !normalized.is_empty() {
-                    add_tags.push(normalized);
-                }
-            } else if let Some(tag) = word.strip_prefix('-') {
-                let normalized = tag.trim().to_lowercase();
-                if !normalized.is_empty() {
-                    remove_tags.push(normalized);
-                }
-            }
-        }
-
-        if add_tags.is_empty() && remove_tags.is_empty() {
-            self.render.missing_tags();
-            return Err(TaskbookError::General("No tags provided".to_string()));
-        }
-
-        if let Some(item) = data.get_mut(&id.to_string()) {
-            let mut current_tags: Vec<String> = item.tags().to_vec();
-
-            // Remove tags
-            current_tags.retain(|t| !remove_tags.iter().any(|r| t.eq_ignore_ascii_case(r)));
-
-            // Add tags (dedup)
-            for tag in &add_tags {
-                if !current_tags.iter().any(|t| t.eq_ignore_ascii_case(tag)) {
-                    current_tags.push(tag.clone());
-                }
-            }
-
-            item.set_tags(current_tags);
-        }
-
-        self.save(&data)?;
-        self.render.success_tag(id, &add_tags, &remove_tags);
-        Ok(())
+        Ok((filtered_data, display_boards))
     }
 
     /// Update tags (for TUI and CLI)

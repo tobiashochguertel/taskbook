@@ -27,8 +27,8 @@ pub fn render_journal_view(frame: &mut Frame, app: &App, area: Rect) {
     // Sort dates (oldest first - chronological for journal)
     let mut dates: Vec<String> = grouped.keys().cloned().collect();
     dates.sort_by(|a, b| {
-        let items_a = grouped.get(a).unwrap();
-        let items_b = grouped.get(b).unwrap();
+        let items_a = grouped.get(a).expect("key from grouped.keys()");
+        let items_b = grouped.get(b).expect("key from grouped.keys()");
         // Use the maximum timestamp in the group to represent the group date
         let ts_a = items_a.iter().map(|i| i.timestamp()).max().unwrap_or(0);
         let ts_b = items_b.iter().map(|i| i.timestamp()).max().unwrap_or(0);
@@ -39,7 +39,7 @@ pub fn render_journal_view(frame: &mut Frame, app: &App, area: Rect) {
 
     let mut first_group = true;
     for date in dates {
-        let date_items = grouped.get(&date).unwrap();
+        let date_items = grouped.get(&date).expect("key from sorted dates");
 
         // Filter items for display
         let visible_items: Vec<&StorageItem> = date_items

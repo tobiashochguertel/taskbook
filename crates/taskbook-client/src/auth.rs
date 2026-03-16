@@ -259,12 +259,14 @@ pub fn login_sso(server_url: Option<&str>, encryption_key: Option<&str>) -> Resu
     };
     creds.save()?;
 
-    // Store key hash on server for cross-device sync indication
+    // Best-effort: store key hash on server for cross-device sync indication
     let client = ApiClient::new(&creds.server_url, Some(&creds.token));
-    let _ = client.post_json(
+    if let Err(e) = client.post_json(
         "/api/v1/me/encryption-key",
         &serde_json::json!({"encryption_key": &creds.encryption_key}),
-    );
+    ) {
+        eprintln!("Warning: failed to store encryption key on server: {e}");
+    }
 
     // Enable sync
     match client.get_me() {
@@ -355,12 +357,14 @@ pub fn login_sso_manual(server_url: Option<&str>, encryption_key: Option<&str>) 
     };
     creds.save()?;
 
-    // Store key hash on server for cross-device sync indication
+    // Best-effort: store key hash on server for cross-device sync indication
     let client = ApiClient::new(&creds.server_url, Some(&creds.token));
-    let _ = client.post_json(
+    if let Err(e) = client.post_json(
         "/api/v1/me/encryption-key",
         &serde_json::json!({"encryption_key": &creds.encryption_key}),
-    );
+    ) {
+        eprintln!("Warning: failed to store encryption key on server: {e}");
+    }
 
     // Enable sync
     let mut sync_cfg = Config::load_or_default();

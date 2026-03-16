@@ -64,11 +64,15 @@ pub fn update_suggestions(app: &mut App) {
         suggest_commands(app, partial);
     } else {
         // We're past the command name — determine context
-        let space_pos = text_to_cursor.find(' ').unwrap();
+        let Some(space_pos) = text_to_cursor.find(' ') else {
+            return;
+        };
         let command = &text_to_cursor[1..space_pos]; // skip '/'
 
         // Find the last token start (use char index, not byte index)
-        let last_space = chars[..cursor].iter().rposition(|c| *c == ' ').unwrap();
+        let Some(last_space) = chars[..cursor].iter().rposition(|c| *c == ' ') else {
+            return;
+        };
         let last_token: String = chars[last_space + 1..cursor].iter().collect();
 
         if let Some(after_at) = last_token.strip_prefix('@') {
