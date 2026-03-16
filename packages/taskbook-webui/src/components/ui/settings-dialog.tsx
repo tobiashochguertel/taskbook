@@ -70,6 +70,7 @@ export function SettingsDialog({
             <button
               key={value}
               type="button"
+              aria-label={label}
               onClick={() => update({ theme: value })}
               className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg cursor-pointer border-2 transition-colors"
               style={{

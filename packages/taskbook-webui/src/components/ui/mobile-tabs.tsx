@@ -34,6 +34,7 @@ export function MobileTabs({ active, onChange, counts }: MobileTabsProps) {
           <button
             key={id}
             type="button"
+            aria-label={label}
             onClick={() => onChange(id)}
             className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 cursor-pointer border-none relative"
             style={{

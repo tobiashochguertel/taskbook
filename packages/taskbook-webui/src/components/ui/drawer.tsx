@@ -240,6 +240,7 @@ export function Drawer({
             >
               <button
                 type="button"
+                aria-label="Archive"
                 onClick={() => {
                   setOpen(false);
                   onOpenArchive();
@@ -256,6 +257,7 @@ export function Drawer({
               </button>
               <button
                 type="button"
+                aria-label="Settings"
                 onClick={() => {
                   setOpen(false);
                   onOpenSettings();
@@ -272,6 +274,7 @@ export function Drawer({
               </button>
               <button
                 type="button"
+                aria-label="Logout"
                 onClick={() => {
                   setOpen(false);
                   onLogout();

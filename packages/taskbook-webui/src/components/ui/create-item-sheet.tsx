@@ -239,6 +239,7 @@ export function CreateItemSheet({
       {/* Submit */}
       <button
         type="button"
+        aria-label={type === "task" ? "Create Task" : "Create Note"}
         onClick={handleSubmit}
         disabled={!description.trim()}
         className="w-full py-3 rounded-lg text-sm font-semibold cursor-pointer border-none transition-opacity"
@@ -276,6 +277,7 @@ function TypeButton({
   return (
     <button
       type="button"
+      aria-label={label}
       onClick={onClick}
       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg cursor-pointer border-2 transition-colors"
       style={{
