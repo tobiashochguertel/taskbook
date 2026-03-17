@@ -18,6 +18,7 @@ use crate::error::{Result, TaskbookError};
 
 const CALLBACK_PORT: u16 = 18900;
 const CALLBACK_PORT_MAX: u16 = 18910;
+const HTTP_READ_BUFFER_SIZE: usize = 8192;
 
 /// Callback HTML page that extracts the URL fragment and POSTs it to /complete.
 const CALLBACK_HTML: &str = r#"<!DOCTYPE html>
@@ -116,7 +117,7 @@ fn wait_for_callback(listener: &TcpListener) -> Result<SsoResult> {
             .accept()
             .map_err(|e| TaskbookError::General(format!("accept failed: {e}")))?;
 
-        let mut buf = vec![0u8; 8192];
+        let mut buf = vec![0u8; HTTP_READ_BUFFER_SIZE];
         let n = stream
             .read(&mut buf)
             .map_err(|e| TaskbookError::General(format!("read failed: {e}")))?;

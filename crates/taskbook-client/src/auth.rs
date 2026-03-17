@@ -9,6 +9,103 @@ use crate::credentials::Credentials;
 use crate::error::{Result, TaskbookError};
 use crate::sso;
 
+// ---------------------------------------------------------------------------
+// Shared helpers (DRY extraction)
+// ---------------------------------------------------------------------------
+
+/// Resolve the server URL from an explicit argument, config, or interactive prompt.
+fn resolve_server_url(server_url: Option<&str>) -> Result<String> {
+    match server_url {
+        Some(s) => Ok(s.to_string()),
+        None => {
+            let config = Config::load_or_default();
+            if config.sync.enabled {
+                println!("Using server: {}", config.sync.server_url);
+                Ok(config.sync.server_url)
+            } else {
+                prompt("Server URL: ")
+            }
+        }
+    }
+}
+
+/// Resolve the encryption key: explicit > existing credentials > prompt/generate.
+fn resolve_encryption_key(explicit: Option<&str>, server: &str) -> Result<String> {
+    if let Some(k) = explicit {
+        return Ok(k.to_string());
+    }
+    if let Some(existing) = Credentials::for_server(server)? {
+        println!(
+            "{}",
+            "Reusing existing encryption key from previous login.".dimmed()
+        );
+        return Ok(existing.encryption_key);
+    }
+    prompt_or_generate_key()
+}
+
+/// Prompt for an encryption key or generate a new one if left blank.
+fn prompt_or_generate_key() -> Result<String> {
+    let input = prompt("Encryption key (leave blank to generate new): ")?;
+    if input.is_empty() {
+        Ok(generate_and_print_key())
+    } else {
+        Ok(input)
+    }
+}
+
+/// Generate a new encryption key, print it, and return the base64 string.
+fn generate_and_print_key() -> String {
+    let raw_key = taskbook_common::encryption::generate_key();
+    let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
+    println!(
+        "{}",
+        "Generated new encryption key (save this — it cannot be recovered):".yellow()
+    );
+    println!("  {}", key_b64.bright_white().bold());
+    println!();
+    key_b64
+}
+
+/// Common post-login steps: store encryption key on server, enable sync, verify token.
+fn finalize_login(creds: &Credentials) -> Result<()> {
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+
+    // Best-effort: store key hash on server for cross-device sync indication
+    if let Err(e) = client.post_json(
+        "/api/v1/me/encryption-key",
+        &serde_json::json!({"encryption_key": &creds.encryption_key}),
+    ) {
+        eprintln!("Warning: failed to store encryption key on server: {e}");
+    }
+
+    // Enable sync
+    let mut sync_cfg = Config::load_or_default();
+    sync_cfg.enable_sync(&creds.server_url)?;
+
+    // Verify the token works and print result
+    match client.get_me() {
+        Ok(me) => {
+            println!(
+                "{}",
+                format!("✅ Logged in as {} ({})", me.username, me.email)
+                    .green()
+                    .bold()
+            );
+        }
+        Err(_) => {
+            println!("{}", "✅ Token saved.".green().bold());
+            println!(
+                "{}",
+                "Warning: could not verify token — it may be expired.".yellow()
+            );
+        }
+    }
+    println!("{}", "Sync is now enabled.".green());
+
+    Ok(())
+}
+
 fn prompt(message: &str) -> Result<String> {
     print!("{}", message);
     io::stdout()
@@ -36,15 +133,7 @@ pub fn register(
     println!("{}", "Register new account".bold());
     println!();
 
-    let mut config = Config::load_or_default();
-    let server = match server_url {
-        Some(s) => s.to_string(),
-        None if config.sync.enabled => {
-            println!("Using server: {}", config.sync.server_url);
-            config.sync.server_url.clone()
-        }
-        None => prompt("Server URL: ")?,
-    };
+    let server = resolve_server_url(server_url)?;
 
     let user = match username {
         Some(u) => u.to_string(),
@@ -76,32 +165,19 @@ pub fn register(
         password: pass,
     })?;
 
-    // Generate encryption key locally
-    let key = taskbook_common::encryption::generate_key();
-    let key_b64 = base64::engine::general_purpose::STANDARD.encode(key);
+    let key_b64 = generate_and_print_key();
 
-    // Save credentials
     let creds = Credentials {
-        server_url: server.clone(),
+        server_url: server,
         token: resp.token,
-        encryption_key: key_b64.clone(),
+        encryption_key: key_b64,
     };
     creds.save()?;
 
-    // Enable sync
-    config.enable_sync(&server)?;
+    finalize_login(&creds)?;
 
     println!();
     println!("{}", "Registration successful!".green().bold());
-    println!("{}", "Sync is now enabled.".green());
-    println!();
-    println!(
-        "{}",
-        "Your encryption key (save this — it cannot be recovered):".yellow()
-    );
-    println!();
-    println!("  {}", key_b64.bright_white().bold());
-    println!();
 
     Ok(())
 }
@@ -120,47 +196,12 @@ pub fn login(
     println!("{}", "Login".bold());
     println!();
 
-    let config = Config::load_or_default();
-    let server = match server_url {
-        Some(s) => s.to_string(),
-        None if config.sync.enabled => {
-            println!("Using server: {}", config.sync.server_url);
-            config.sync.server_url.clone()
-        }
-        None => prompt("Server URL: ")?,
-    };
-
-    let key = if let Some(k) = encryption_key {
-        k.to_string()
-    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
-        println!(
-            "{}",
-            "Reusing existing encryption key from previous login.".dimmed()
-        );
-        existing.encryption_key
-    } else {
-        prompt("Encryption key (leave blank to generate new): ").map(|s| {
-            if s.is_empty() {
-                let raw_key = taskbook_common::encryption::generate_key();
-                let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
-                println!(
-                    "{}",
-                    "Generated new encryption key (save this — it cannot be recovered):".yellow()
-                );
-                println!("  {}", key_b64.bright_white().bold());
-                println!();
-                key_b64
-            } else {
-                s
-            }
-        })?
-    };
+    let server = resolve_server_url(server_url)?;
+    let key = resolve_encryption_key(encryption_key, &server)?;
 
     let final_token = if let Some(t) = token {
-        // Token-only login (e.g. from OIDC web flow)
         t.to_string()
     } else {
-        // Password-based login
         let user = match username {
             Some(u) => u.to_string(),
             None => prompt("Username: ")?,
@@ -172,7 +213,6 @@ pub fn login(
         };
 
         let client = ApiClient::new(&server, None);
-
         let resp = client.login(&LoginRequest {
             username: user,
             password: pass,
@@ -181,19 +221,13 @@ pub fn login(
     };
 
     let creds = Credentials {
-        server_url: server.clone(),
+        server_url: server,
         token: final_token,
         encryption_key: key,
     };
     creds.save()?;
 
-    // Enable sync
-    let mut sync_cfg = Config::load_or_default();
-    sync_cfg.enable_sync(&server)?;
-
-    println!();
-    println!("{}", "Login successful!".green().bold());
-    println!("{}", "Sync is now enabled.".green());
+    finalize_login(&creds)?;
 
     Ok(())
 }
@@ -206,16 +240,7 @@ pub fn login_sso(server_url: Option<&str>, encryption_key: Option<&str>) -> Resu
     println!("{}", "SSO Login".bold());
     println!();
 
-    let config = Config::load_or_default();
-    let server = match server_url {
-        Some(s) => s.to_string(),
-        None if config.sync.enabled => {
-            println!("Using server: {}", config.sync.server_url);
-            config.sync.server_url.clone()
-        }
-        None => prompt("Server URL: ")?,
-    };
-
+    let server = resolve_server_url(server_url)?;
     let result = sso::run_sso_flow(&server)?;
 
     // Determine encryption key:
@@ -236,53 +261,20 @@ pub fn login_sso(server_url: Option<&str>, encryption_key: Option<&str>) -> Resu
         key
     } else if let Some(k) = encryption_key {
         k.to_string()
-    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
+    } else if let Some(existing) = Credentials::for_server(&server)? {
         existing.encryption_key
     } else {
-        // Generate a new encryption key for the user
-        let raw_key = taskbook_common::encryption::generate_key();
-        let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
-        println!();
-        println!(
-            "{}",
-            "Generated new encryption key (save this — it cannot be recovered):".yellow()
-        );
-        println!("  {}", key_b64.bright_white().bold());
-        println!();
-        key_b64
+        generate_and_print_key()
     };
 
     let creds = Credentials {
-        server_url: server.clone(),
+        server_url: server,
         token: result.token,
         encryption_key: key,
     };
     creds.save()?;
 
-    // Best-effort: store key hash on server for cross-device sync indication
-    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
-    if let Err(e) = client.post_json(
-        "/api/v1/me/encryption-key",
-        &serde_json::json!({"encryption_key": &creds.encryption_key}),
-    ) {
-        eprintln!("Warning: failed to store encryption key on server: {e}");
-    }
-
-    // Enable sync
-    match client.get_me() {
-        Ok(me) => {
-            println!(
-                "{}",
-                format!("✅ Logged in as {} ({})", me.username, me.email)
-                    .green()
-                    .bold()
-            );
-        }
-        Err(_) => {
-            println!("{}", "✅ Token saved.".green().bold());
-        }
-    }
-    println!("{}", "Sync is now enabled.".green());
+    finalize_login(&creds)?;
 
     Ok(())
 }
@@ -297,15 +289,7 @@ pub fn login_sso_manual(server_url: Option<&str>, encryption_key: Option<&str>) 
     println!("{}", "SSO Login (Manual / Headless)".bold());
     println!();
 
-    let config = Config::load_or_default();
-    let server = match server_url {
-        Some(s) => s.to_string(),
-        None if config.sync.enabled => {
-            println!("Using server: {}", config.sync.server_url);
-            config.sync.server_url.clone()
-        }
-        None => prompt("Server URL: ")?,
-    };
+    let server = resolve_server_url(server_url)?;
 
     let login_url = format!("{}/auth/oidc/login", server.trim_end_matches('/'));
 
@@ -325,70 +309,16 @@ pub fn login_sso_manual(server_url: Option<&str>, encryption_key: Option<&str>) 
         return Err(TaskbookError::Auth("no token provided".to_string()));
     }
 
-    let key = if let Some(k) = encryption_key {
-        k.to_string()
-    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
-        println!(
-            "{}",
-            "Reusing existing encryption key from previous login.".dimmed()
-        );
-        existing.encryption_key
-    } else {
-        let k = prompt("Encryption key (leave blank to generate new): ")?;
-        if k.is_empty() {
-            let raw_key = taskbook_common::encryption::generate_key();
-            let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
-            println!(
-                "{}",
-                "Generated new encryption key (save this — it cannot be recovered):".yellow()
-            );
-            println!("  {}", key_b64.bright_white().bold());
-            println!();
-            key_b64
-        } else {
-            k
-        }
-    };
+    let key = resolve_encryption_key(encryption_key, &server)?;
 
     let creds = Credentials {
-        server_url: server.clone(),
+        server_url: server,
         token,
         encryption_key: key,
     };
     creds.save()?;
 
-    // Best-effort: store key hash on server for cross-device sync indication
-    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
-    if let Err(e) = client.post_json(
-        "/api/v1/me/encryption-key",
-        &serde_json::json!({"encryption_key": &creds.encryption_key}),
-    ) {
-        eprintln!("Warning: failed to store encryption key on server: {e}");
-    }
-
-    // Enable sync
-    let mut sync_cfg = Config::load_or_default();
-    sync_cfg.enable_sync(&server)?;
-
-    // Verify the token works
-    match client.get_me() {
-        Ok(me) => {
-            println!(
-                "{}",
-                format!("✅ Logged in as {} ({})", me.username, me.email)
-                    .green()
-                    .bold()
-            );
-        }
-        Err(_) => {
-            println!("{}", "Token saved.".green().bold());
-            println!(
-                "{}",
-                "Warning: could not verify token — it may be expired.".yellow()
-            );
-        }
-    }
-    println!("{}", "Sync is now enabled.".green());
+    finalize_login(&creds)?;
 
     Ok(())
 }
@@ -402,70 +332,23 @@ pub fn set_token(
     token: Option<&str>,
     encryption_key: Option<&str>,
 ) -> Result<()> {
-    let config = Config::load_or_default();
-    let server = match server_url {
-        Some(s) => s.to_string(),
-        None if config.sync.enabled => {
-            println!("Using server: {}", config.sync.server_url);
-            config.sync.server_url.clone()
-        }
-        None => prompt("Server URL: ")?,
-    };
+    let server = resolve_server_url(server_url)?;
 
     let tok = match token {
         Some(t) => t.to_string(),
         None => prompt("Session token: ")?,
     };
 
-    let key = if let Some(k) = encryption_key {
-        k.to_string()
-    } else if let Some(existing) = Credentials::load()?.filter(|c| c.server_url == server) {
-        println!("{}", "Reusing existing encryption key.".dimmed());
-        existing.encryption_key
-    } else {
-        let raw_key = taskbook_common::encryption::generate_key();
-        let key_b64 = base64::engine::general_purpose::STANDARD.encode(raw_key);
-        println!();
-        println!(
-            "{}",
-            "Generated new encryption key (save this — it cannot be recovered):".yellow()
-        );
-        println!("  {}", key_b64.bright_white().bold());
-        println!();
-        key_b64
-    };
+    let key = resolve_encryption_key(encryption_key, &server)?;
 
     let creds = Credentials {
-        server_url: server.clone(),
+        server_url: server,
         token: tok,
         encryption_key: key,
     };
     creds.save()?;
 
-    // Enable sync
-    let mut sync_cfg = Config::load_or_default();
-    sync_cfg.enable_sync(&server)?;
-
-    // Verify the token works
-    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
-    match client.get_me() {
-        Ok(me) => {
-            println!(
-                "{}",
-                format!("Token saved — logged in as {} ({})", me.username, me.email)
-                    .green()
-                    .bold()
-            );
-        }
-        Err(_) => {
-            println!("{}", "Token saved.".green().bold());
-            println!(
-                "{}",
-                "Warning: could not verify token — it may be expired.".yellow()
-            );
-        }
-    }
-    println!("{}", "Sync is now enabled.".green());
+    finalize_login(&creds)?;
 
     Ok(())
 }
@@ -558,8 +441,7 @@ pub fn status() -> Result<()> {
     }
 
     // Show encryption key status
-    if let Some(ref creds) = Credentials::load()?.filter(|c| c.server_url == config.sync.server_url)
-    {
+    if let Some(ref creds) = Credentials::for_server(&config.sync.server_url)? {
         if !creds.encryption_key.is_empty() {
             println!("Encryption:  {}", "configured".green());
         } else {

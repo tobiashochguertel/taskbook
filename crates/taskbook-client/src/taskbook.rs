@@ -79,11 +79,7 @@ impl Taskbook {
     }
 
     /// Validate IDs exist in data, returning deduplicated valid IDs.
-    pub fn validate_ids(
-        &self,
-        input_ids: &[u64],
-        existing_ids: &HashSet<u64>,
-    ) -> Result<Vec<u64>> {
+    pub fn validate_ids(&self, input_ids: &[u64], existing_ids: &HashSet<u64>) -> Result<Vec<u64>> {
         if input_ids.is_empty() {
             return Err(TaskbookError::InvalidId(0));
         }
@@ -210,14 +206,10 @@ impl Taskbook {
             match attr.as_str() {
                 "star" | "starred" => Self::filter_items(data, |item| item.is_starred()),
                 "done" | "checked" | "complete" => {
-                    Self::filter_items(data, |item| {
-                        item.as_task().is_some_and(|t| t.is_complete)
-                    });
+                    Self::filter_items(data, |item| item.as_task().is_some_and(|t| t.is_complete));
                 }
                 "progress" | "started" | "begun" => {
-                    Self::filter_items(data, |item| {
-                        item.as_task().is_some_and(|t| t.in_progress)
-                    });
+                    Self::filter_items(data, |item| item.as_task().is_some_and(|t| t.in_progress));
                 }
                 "pending" | "unchecked" | "incomplete" => {
                     Self::filter_items(data, |item| {
@@ -605,7 +597,12 @@ impl Taskbook {
     // Public API methods (return data, no rendering)
 
     /// Create a note, returning the created ID.
-    pub fn create_note(&self, boards: Vec<String>, description: String, tags: Vec<String>) -> Result<u64> {
+    pub fn create_note(
+        &self,
+        boards: Vec<String>,
+        description: String,
+        tags: Vec<String>,
+    ) -> Result<u64> {
         self.create_note_direct_with_tags(boards, description, tags)
     }
 
@@ -663,7 +660,13 @@ impl Taskbook {
     }
 
     /// Create a task, returning the created ID.
-    pub fn create_task(&self, boards: Vec<String>, description: String, priority: u8, tags: Vec<String>) -> Result<u64> {
+    pub fn create_task(
+        &self,
+        boards: Vec<String>,
+        description: String,
+        priority: u8,
+        tags: Vec<String>,
+    ) -> Result<u64> {
         self.create_task_direct_with_tags(boards, description, priority, tags)
     }
 

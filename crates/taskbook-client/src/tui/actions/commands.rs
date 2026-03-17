@@ -288,10 +288,7 @@ fn handle_encryption_key(app: &mut App, sub: Option<String>) -> Result<()> {
                         );
                     }
                     Err(_) => {
-                        app.set_status(
-                            "✗ Invalid base64 encoding".to_string(),
-                            StatusKind::Error,
-                        );
+                        app.set_status("✗ Invalid base64 encoding".to_string(), StatusKind::Error);
                     }
                 }
             }
