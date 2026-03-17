@@ -11,6 +11,9 @@ use crate::taskbook::Taskbook;
 use taskbook_common::board;
 use taskbook_common::StorageItem;
 
+const DEFAULT_CONTENT_HEIGHT: u16 = 20;
+const MAX_COMMAND_HISTORY: usize = 50;
+
 /// Sort items by the given method
 pub fn sort_items_by(items: &mut [&StorageItem], method: SortMethod) {
     match method {
@@ -208,7 +211,7 @@ impl App {
             config,
             display_order: Vec::new(),
             needs_full_redraw: false,
-            content_height: 20,
+            content_height: DEFAULT_CONTENT_HEIGHT,
             command_history: Vec::new(),
             history_index: None,
             history_saved_input: String::new(),
@@ -566,8 +569,8 @@ impl App {
             if self.command_history.last().map(|s| s.as_str()) != Some(cmd.trim()) {
                 self.command_history.push(cmd.trim().to_string());
             }
-            // Cap history at 50 entries
-            if self.command_history.len() > 50 {
+            // Cap history
+            if self.command_history.len() > MAX_COMMAND_HISTORY {
                 self.command_history.remove(0);
             }
         }
