@@ -67,7 +67,15 @@ export function BoardPage() {
   const [customBoards, setCustomBoards] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("tb_custom_boards");
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      const parsed: string[] = JSON.parse(stored);
+      // Normalize: strip leading @ prefixes (legacy bug)
+      const normalized = parsed.map((b) => b.replace(/^@+/, "").trim()).filter(Boolean);
+      const deduped = [...new Set(normalized)];
+      if (JSON.stringify(deduped) !== JSON.stringify(parsed)) {
+        localStorage.setItem("tb_custom_boards", JSON.stringify(deduped));
+      }
+      return deduped;
     } catch {
       return [];
     }
@@ -82,9 +90,11 @@ export function BoardPage() {
   const currentBoard = selectedBoard ?? boards[0] ?? "My Board";
 
   const addCustomBoard = useCallback((name: string) => {
+    const cleaned = name.replace(/^@+/, "").trim();
+    if (!cleaned) return;
     setCustomBoards((prev) => {
-      if (prev.includes(name)) return prev;
-      const next = [...prev, name];
+      if (prev.includes(cleaned)) return prev;
+      const next = [...prev, cleaned];
       localStorage.setItem("tb_custom_boards", JSON.stringify(next));
       return next;
     });
@@ -105,6 +115,43 @@ export function BoardPage() {
       }
     },
     [currentBoard, boards],
+  );
+
+  const renameBoard = useCallback(
+    (oldName: string, newName: string) => {
+      // Strip leading @ if user typed it
+      const cleaned = newName.replace(/^@+/, "").trim();
+      if (!cleaned || cleaned === oldName) return;
+
+      // Update custom boards list
+      setCustomBoards((prev) => {
+        const next = prev.map((b) => (b === oldName ? cleaned : b));
+        if (!next.includes(cleaned)) next.push(cleaned);
+        const deduped = [...new Set(next.filter((b) => b !== oldName || b === cleaned))];
+        localStorage.setItem("tb_custom_boards", JSON.stringify(deduped));
+        return deduped;
+      });
+
+      // Update all items that reference the old board name
+      const updated = { ...items };
+      let changed = false;
+      for (const [id, item] of Object.entries(updated)) {
+        if (item.boards.includes(oldName)) {
+          updated[id] = {
+            ...item,
+            boards: item.boards.map((b) => (b === oldName ? cleaned : b)),
+          };
+          changed = true;
+        }
+      }
+      if (changed) updateItems(updated);
+
+      // Switch to renamed board if we were on it
+      if (currentBoard === oldName) {
+        setSelectedBoard(cleaned);
+      }
+    },
+    [items, updateItems, currentBoard],
   );
 
   const boardItems = useMemo(() => {
@@ -467,6 +514,7 @@ export function BoardPage() {
               onLogout={logout}
               onAddBoard={addCustomBoard}
               onDeleteBoard={deleteBoard}
+              onRenameBoard={renameBoard}
               itemBoards={itemBoards}
               username={user.data?.username}
               email={user.data?.email}

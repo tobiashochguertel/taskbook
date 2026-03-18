@@ -155,6 +155,12 @@ export function SettingsDialog({
           checked={settings.compactCards}
           onChange={(v) => update({ compactCards: v })}
         />
+        <ToggleRow
+          label="Auto-close sidebar"
+          description="Close sidebar after selecting a board or action"
+          checked={settings.autoCloseDrawer}
+          onChange={(v) => update({ autoCloseDrawer: v })}
+        />
       </section>
     </>
   );

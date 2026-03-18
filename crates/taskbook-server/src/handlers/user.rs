@@ -236,20 +236,7 @@ pub async fn update_me(
     Json(req): Json<UpdateMeRequest>,
 ) -> Result<Json<UpdateMeResponse>> {
     if let Some(ref username) = req.username {
-        if username.is_empty() || username.len() > 64 {
-            return Err(ServerError::Validation(
-                "username must be 1-64 characters".into(),
-            ));
-        }
-        if !username
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
-        {
-            return Err(ServerError::Validation(
-                "username must contain only alphanumeric characters, hyphens, underscores, or dots"
-                    .into(),
-            ));
-        }
+        validate_username(username)?;
 
         sqlx::query("UPDATE users SET username = $1 WHERE id = $2")
             .bind(username)
@@ -389,6 +376,25 @@ pub(crate) async fn create_session(
 }
 
 /// Validate registration input fields.
+/// Shared username validation: 1-64 chars, alphanumeric/underscore/dash/dot
+fn validate_username(username: &str) -> Result<()> {
+    if username.is_empty() || username.len() > 64 {
+        return Err(ServerError::Validation(
+            "username must be 1-64 characters".into(),
+        ));
+    }
+    if !username
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
+    {
+        return Err(ServerError::Validation(
+            "username must contain only alphanumeric characters, hyphens, underscores, or dots"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
 fn validate_registration(req: &RegisterRequest) -> Result<()> {
     if req.username.is_empty() || req.password.is_empty() || req.email.is_empty() {
         return Err(ServerError::Validation(
@@ -396,22 +402,7 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
         ));
     }
 
-    if req.username.len() > 64 {
-        return Err(ServerError::Validation(
-            "username must be at most 64 characters".to_string(),
-        ));
-    }
-
-    if !req
-        .username
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-    {
-        return Err(ServerError::Validation(
-            "username must contain only alphanumeric characters, hyphens, or underscores"
-                .to_string(),
-        ));
-    }
+    validate_username(&req.username)?;
 
     if req.email.len() > 255 {
         return Err(ServerError::Validation(

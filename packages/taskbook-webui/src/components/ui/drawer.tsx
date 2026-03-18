@@ -1,8 +1,10 @@
 import {
   Archive,
+  Check,
   Folder,
   LogOut,
   Menu,
+  Pencil,
   Plus,
   Settings,
   Trash2,
@@ -10,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSettings } from "../../lib/settings";
 
 interface DrawerProps {
   boards: string[];
@@ -20,6 +23,7 @@ interface DrawerProps {
   onLogout: () => void;
   onAddBoard: (name: string) => void;
   onDeleteBoard: (name: string) => void;
+  onRenameBoard: (oldName: string, newName: string) => void;
   itemBoards: string[];
   username?: string;
   email?: string;
@@ -53,14 +57,22 @@ export function Drawer({
   onLogout,
   onAddBoard,
   onDeleteBoard,
+  onRenameBoard,
   itemBoards,
   username,
   email,
 }: DrawerProps) {
+  const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const [showNewBoard, setShowNewBoard] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [renamingBoard, setRenamingBoard] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const maybeClose = () => {
+    if (settings.autoCloseDrawer) setOpen(false);
+  };
 
   useEffect(() => {
     if (open) {
@@ -169,6 +181,7 @@ export function Drawer({
               </div>
               {boards.map((board) => {
                 const hasItems = itemBoards.includes(board);
+                const isRenaming = renamingBoard === board;
                 return (
                   <div
                     key={board}
@@ -180,70 +193,141 @@ export function Drawer({
                           : "transparent",
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelectBoard(board);
-                        setOpen(false);
-                      }}
-                      className="flex items-center gap-3 flex-1 text-left px-4 py-3 cursor-pointer border-none"
-                      style={{
-                        color:
-                          board === currentBoard
-                            ? "var(--color-accent)"
-                            : "var(--color-text)",
-                        background: "none",
-                        minHeight: 44,
-                      }}
-                    >
-                      <Folder size={16} />
-                      <span className="text-sm">@{board}</span>
-                    </button>
-                    {confirmDelete === board ? (
-                      <div className="flex items-center gap-1 pr-2">
+                    {isRenaming ? (
+                      <div className="flex items-center gap-2 flex-1 px-4 py-2">
+                        <Folder size={16} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
+                        <input
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          className="flex-1 text-sm px-2 py-1 rounded border-none outline-none"
+                          style={{
+                            backgroundColor: "var(--color-bg)",
+                            color: "var(--color-text)",
+                            border: "1px solid var(--color-accent)",
+                          }}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && renameValue.trim() && renameValue.trim() !== board) {
+                              onRenameBoard(board, renameValue.trim());
+                              setRenamingBoard(null);
+                              setRenameValue("");
+                            }
+                            if (e.key === "Escape") {
+                              setRenamingBoard(null);
+                              setRenameValue("");
+                            }
+                          }}
+                        />
                         <button
                           type="button"
                           onClick={() => {
-                            onDeleteBoard(board);
-                            setConfirmDelete(null);
+                            if (renameValue.trim() && renameValue.trim() !== board) {
+                              onRenameBoard(board, renameValue.trim());
+                            }
+                            setRenamingBoard(null);
+                            setRenameValue("");
                           }}
-                          className="px-2 py-1 text-xs rounded cursor-pointer border-none"
-                          style={{
-                            backgroundColor: "var(--color-error)",
-                            color: "white",
-                          }}
+                          className="flex items-center justify-center cursor-pointer border-none rounded-md"
+                          style={{ color: "var(--color-success)", background: "none", width: 28, height: 28 }}
+                          title="Confirm rename"
                         >
-                          Yes
+                          <Check size={14} />
                         </button>
                         <button
                           type="button"
-                          onClick={() => setConfirmDelete(null)}
-                          className="px-2 py-1 text-xs rounded cursor-pointer border-none"
-                          style={{
-                            backgroundColor: "var(--color-surface-hover)",
-                            color: "var(--color-text-muted)",
-                          }}
+                          onClick={() => { setRenamingBoard(null); setRenameValue(""); }}
+                          className="flex items-center justify-center cursor-pointer border-none rounded-md"
+                          style={{ color: "var(--color-text-muted)", background: "none", width: 28, height: 28 }}
+                          title="Cancel rename"
                         >
-                          No
+                          <X size={14} />
                         </button>
                       </div>
                     ) : (
-                      !hasItems && (
+                      <>
                         <button
                           type="button"
-                          onClick={() => setConfirmDelete(board)}
-                          className="opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer border-none rounded-md mr-2 transition-opacity"
-                          style={{
-                            color: "var(--color-text-muted)",
-                            background: "none",
-                            width: 32,
-                            height: 32,
+                          onClick={() => {
+                            onSelectBoard(board);
+                            maybeClose();
                           }}
-                          title={`Delete board @${board}`}
+                          className="flex items-center gap-3 flex-1 text-left px-4 py-3 cursor-pointer border-none"
+                          style={{
+                            color:
+                              board === currentBoard
+                                ? "var(--color-accent)"
+                                : "var(--color-text)",
+                            background: "none",
+                            minHeight: 44,
+                          }}
                         >
-                          <Trash2 size={14} />
+                          <Folder size={16} />
+                          <span className="text-sm">@{board}</span>
                         </button>
-                      )
+                        {confirmDelete === board ? (
+                          <div className="flex items-center gap-1 pr-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onDeleteBoard(board);
+                                setConfirmDelete(null);
+                              }}
+                              className="px-2 py-1 text-xs rounded cursor-pointer border-none"
+                              style={{
+                                backgroundColor: "var(--color-error)",
+                                color: "white",
+                              }}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(null)}
+                              className="px-2 py-1 text-xs rounded cursor-pointer border-none"
+                              style={{
+                                backgroundColor: "var(--color-surface-hover)",
+                                color: "var(--color-text-muted)",
+                              }}
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => { setRenamingBoard(board); setRenameValue(board); }}
+                              className="flex items-center justify-center cursor-pointer border-none rounded-md"
+                              style={{
+                                color: "var(--color-text-muted)",
+                                background: "none",
+                                width: 28,
+                                height: 28,
+                              }}
+                              title={`Rename board @${board}`}
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            {!hasItems && (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDelete(board)}
+                                className="flex items-center justify-center cursor-pointer border-none rounded-md"
+                                style={{
+                                  color: "var(--color-text-muted)",
+                                  background: "none",
+                                  width: 28,
+                                  height: 28,
+                                }}
+                                title={`Delete board @${board}`}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -269,7 +353,7 @@ export function Drawer({
                         onSelectBoard(newBoardName.trim());
                         setNewBoardName("");
                         setShowNewBoard(false);
-                        setOpen(false);
+                        maybeClose();
                       }
                       if (e.key === "Escape") {
                         setShowNewBoard(false);
@@ -304,7 +388,7 @@ export function Drawer({
                 type="button"
                 aria-label="Archive"
                 onClick={() => {
-                  setOpen(false);
+                  maybeClose();
                   onOpenArchive();
                 }}
                 className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
@@ -321,7 +405,7 @@ export function Drawer({
                 type="button"
                 aria-label="Settings"
                 onClick={() => {
-                  setOpen(false);
+                  maybeClose();
                   onOpenSettings();
                 }}
                 className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
@@ -338,7 +422,7 @@ export function Drawer({
                 type="button"
                 aria-label="Logout"
                 onClick={() => {
-                  setOpen(false);
+                  maybeClose();
                   onLogout();
                 }}
                 className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
