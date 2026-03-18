@@ -16,6 +16,7 @@ export interface WebUISettings {
   navStyle: NavStyle;
   swipeGestures: boolean;
   compactCards: boolean;
+  autoCloseDrawer: boolean;
 }
 
 const DEFAULT_SETTINGS: WebUISettings = {
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS: WebUISettings = {
   navStyle: "both",
   swipeGestures: true,
   compactCards: false,
+  autoCloseDrawer: true,
 };
 
 const STORAGE_KEY = "tb_webui_settings";
