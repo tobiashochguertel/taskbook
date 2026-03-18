@@ -19,6 +19,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   REGISTRY: ghcr.io
+  # Strip 'v' prefix for Docker image tags (e.g. v1.7.4 → 1.7.4)
+  RELEASE_VERSION: ${{ inputs.tag && format('{0}', inputs.tag) || github.ref_name }}
 
 jobs:
   ci:
@@ -229,6 +231,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute version
+        id: version
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -238,6 +246,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=raw,value=${{ steps.version.outputs.value }},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=latest
 
       - name: Build and push server image
@@ -271,6 +280,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute version
+        id: version
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -280,6 +295,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=raw,value=${{ steps.version.outputs.value }},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=latest
 
       - name: Build and push WebUI image
@@ -333,6 +349,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute version
+        id: version
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -342,6 +364,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=raw,value=${{ steps.version.outputs.value }},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=raw,value=latest
 
       - name: Build and push client image
