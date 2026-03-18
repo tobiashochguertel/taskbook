@@ -47,6 +47,32 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace -- -D warnings
 
+  mcp-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: packages/taskbook-mcp-server
+        run: bun install
+
+      - name: Typecheck
+        working-directory: packages/taskbook-mcp-server
+        run: bun run typecheck
+
+      - name: Run tests
+        working-directory: packages/taskbook-mcp-server
+        run: bun test
+
+      - name: Build
+        working-directory: packages/taskbook-mcp-server
+        run: bun run build
+
   test:
     runs-on: ubuntu-latest
     steps:

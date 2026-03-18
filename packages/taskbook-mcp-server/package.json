@@ -1,0 +1,30 @@
+{
+  "name": "@taskbook/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP (Model Context Protocol) server for Taskbook — exposes task management tools and resources to LLM clients",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "taskbook-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun --sourcemap",
+    "build:standalone": "bun build src/index.ts --compile --outfile dist/taskbook-mcp",
+    "dev": "bun run --watch src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx biome check src/ tests/",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.14.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.3"
+  },
+  "files": [
+    "dist"
+  ]
+}
