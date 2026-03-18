@@ -6,10 +6,11 @@ import {
   LogOut,
   RefreshCw,
   Search,
+  Settings,
   StickyNote,
   Trash2,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CommandPalette } from "../components/ui/command-palette";
 import { ConnectionIndicator } from "../components/ui/connection-indicator";
 import { CreateItemSheet } from "../components/ui/create-item-sheet";
@@ -306,6 +307,21 @@ export function BoardPage() {
     });
   }
 
+  // ESC key handler: close archive view, settings, or command palette
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showArchiveView) {
+          setShowArchiveView(false);
+        } else if (showSettings) {
+          setShowSettings(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [showArchiveView, showSettings]);
+
   const showBurger =
     settings.navStyle === "burger" || settings.navStyle === "both";
   const showTabs =
@@ -532,18 +548,7 @@ export function BoardPage() {
             <Search size={18} />
           </button>
 
-          <span
-            className="hidden md:inline text-xs md:text-sm"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            {user.data?.username}
-            {user.data?.email && user.data.email !== user.data.username && (
-              <span className="hidden lg:inline text-xs ml-1 opacity-70">
-                ({user.data.email})
-              </span>
-            )}
-          </span>
-
+          {/* Sync status + refresh grouped together */}
           <div className="flex items-center gap-1">
             <ConnectionIndicator
               syncState={syncState}
@@ -574,6 +579,37 @@ export function BoardPage() {
               />
             </button>
           </div>
+
+          <span
+            className="hidden md:inline text-xs md:text-sm"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            {user.data?.username}
+            {user.data?.email && user.data.email !== user.data.username && (
+              <span className="hidden lg:inline text-xs ml-1 opacity-70">
+                ({user.data.email})
+              </span>
+            )}
+          </span>
+
+          {/* Settings gear — always visible when burger menu is hidden */}
+          {!showBurger && (
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="flex items-center justify-center cursor-pointer border-none rounded-md"
+              style={{
+                color: "var(--color-text-muted)",
+                background: "none",
+                width: 44,
+                height: 44,
+              }}
+              title="Settings"
+              aria-label="Settings"
+            >
+              <Settings size={16} />
+            </button>
+          )}
 
           {/* Logout only on desktop (mobile uses drawer) */}
           {!isMobile && (
