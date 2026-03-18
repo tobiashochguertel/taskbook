@@ -2,7 +2,7 @@ use super::app::{App, Suggestion, SuggestionKind};
 use taskbook_common::board;
 
 /// Static list of all slash commands with descriptions
-const COMMANDS: &[(&str, &str)] = &[
+pub const COMMANDS: &[(&str, &str)] = &[
     ("task", "Create a new task"),
     ("note", "Create a new note"),
     ("edit", "Edit item description"),
@@ -154,7 +154,7 @@ fn suggest_boards(app: &mut App, partial: &str) {
                 let completion = format!("{}{} {}", before_at, board_ref, after_cursor);
 
                 app.command_line.suggestions.push(Suggestion {
-                    display: format!("@{}", display),
+                    display: display.clone(),
                     completion,
                     description: None,
                     kind: SuggestionKind::Board,
