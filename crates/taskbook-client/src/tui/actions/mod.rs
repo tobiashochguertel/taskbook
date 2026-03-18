@@ -2,7 +2,7 @@ mod commands;
 mod item_ops;
 mod shortcuts;
 
-use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
 use crate::error::Result;
 use taskbook_common::board;
@@ -100,9 +100,24 @@ fn handle_confirm_key(app: &mut App, key: KeyEvent) -> Result<()> {
 
 /// Handle keys when the command line is focused.
 fn handle_command_line_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    // Tab accepts the selected suggestion
-    if key.code == KeyCode::Tab {
-        accept_suggestion(app);
+    // When the suggestion popup is visible, Tab cycles and Enter accepts
+    if !app.command_line.suggestions.is_empty() {
+        match key.code {
+            KeyCode::Tab => {
+                cycle_suggestion(
+                    app,
+                    /*reverse=*/ key.modifiers.contains(KeyModifiers::SHIFT),
+                );
+                return Ok(());
+            }
+            KeyCode::Enter => {
+                accept_suggestion(app);
+                return Ok(());
+            }
+            _ => {} // fall through to normal handling
+        }
+    } else if key.code == KeyCode::Tab {
+        // No suggestions visible — Tab is a no-op (don't submit)
         return Ok(());
     }
 
@@ -203,6 +218,36 @@ fn accept_suggestion(app: &mut App) {
         app.command_line.selected_suggestion = None;
         autocomplete::update_suggestions(app);
     }
+}
+
+/// Cycle through suggestions (Tab = forward, Shift+Tab = backward).
+fn cycle_suggestion(app: &mut App, reverse: bool) {
+    let count = app.command_line.suggestions.len();
+    if count == 0 {
+        return;
+    }
+    app.command_line.selected_suggestion = Some(match app.command_line.selected_suggestion {
+        None => {
+            if reverse {
+                count - 1
+            } else {
+                0
+            }
+        }
+        Some(i) => {
+            if reverse {
+                if i == 0 {
+                    count - 1
+                } else {
+                    i - 1
+                }
+            } else if i + 1 >= count {
+                0
+            } else {
+                i + 1
+            }
+        }
+    });
 }
 
 /// Parse and execute the command line input.

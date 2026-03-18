@@ -7,6 +7,8 @@ use ratatui::{
 };
 
 use crate::tui::app::{App, PendingAction, SuggestionKind};
+use crate::tui::autocomplete::COMMANDS;
+use crate::tui::command_parser;
 
 /// Render the command line at the bottom of the screen
 pub fn render_command_line(frame: &mut Frame, app: &App, area: Rect) {
@@ -70,14 +72,17 @@ fn render_input(frame: &mut Frame, app: &App, area: Rect) {
     let prompt_style = app.theme.info.add_modifier(Modifier::BOLD);
     let ghost_style = Style::default().fg(Color::Rgb(80, 80, 100));
 
+    // Syntax highlighting: color the input based on command validity
+    let input_style = get_input_validation_style(input);
+
     // Generate ghost text hint for recognized commands
     let ghost_text = get_ghost_text(input);
 
     let mut spans = vec![
         Span::styled("  > ", prompt_style),
-        Span::raw(before),
+        Span::styled(before, input_style),
         Span::styled(cursor_char.to_string(), cursor_style),
-        Span::raw(after),
+        Span::styled(after, input_style),
     ];
 
     // Show ghost text after user input if there's space
@@ -222,7 +227,10 @@ pub fn render_autocomplete(frame: &mut Frame, app: &App, content_area: Rect) {
     frame.render_widget(paragraph, dropdown_area);
 }
 
-/// Get ghost text hint for a slash command based on current input
+/// Get ghost text hint for a slash command based on current input.
+///
+/// Dynamically adjusts to show the *next* expected argument, not the full
+/// syntax.  This gives the user incremental guidance as they type.
 fn get_ghost_text(input: &str) -> Option<String> {
     if !input.starts_with('/') {
         return None;
@@ -230,27 +238,135 @@ fn get_ghost_text(input: &str) -> Option<String> {
 
     let parts: Vec<&str> = input.splitn(2, ' ').collect();
     let cmd = parts[0][1..].to_lowercase();
-    let has_args = parts.len() > 1;
+    let args_str = if parts.len() > 1 { parts[1] } else { "" };
+    let args: Vec<&str> = args_str.split_whitespace().collect();
+    let trailing_space = args_str.ends_with(' ') || args_str.is_empty();
+    // Effective arg count: how many complete arguments we have
+    let arg_count = if trailing_space {
+        args.len()
+    } else {
+        args.len().saturating_sub(1)
+    };
 
-    // Only show ghost text when user has typed the command and a space
-    if !has_args {
-        // Show full hint after command name if it's a complete command
-        return match cmd.as_str() {
-            "task" => Some(" @board description +tag".into()),
-            "note" => Some(" @board title +tag".into()),
-            "edit" => Some(" @<id> new description".into()),
-            "move" => Some(" @<id> @board".into()),
-            "delete" => Some(" @<id> [@<id>...]".into()),
-            "search" => Some(" <term>".into()),
-            "priority" => Some(" @<id> 1-3".into()),
-            "check" | "star" | "begin" => Some(" @<id> [@<id>...]".into()),
-            "tag" => Some(" @<id> +add -remove".into()),
-            "rename-board" => Some(" @\"old\" @\"new\"".into()),
-            "encryption-key" => Some(" [set <base64-key>]".into()),
-            "reset" => Some(" credentials|data|all".into()),
+    match cmd.as_str() {
+        "task" | "note" => match arg_count {
+            0 if parts.len() == 1 => Some(" @board description +tag".into()),
+            0 => Some("@board description +tag".into()),
             _ => None,
-        };
+        },
+        "edit" => match arg_count {
+            0 if parts.len() == 1 => Some(" @<id> new description".into()),
+            0 => Some("@<id> new description".into()),
+            1 => Some("new description".into()),
+            _ => None,
+        },
+        "move" => match arg_count {
+            0 if parts.len() == 1 => Some(" @<id> @board".into()),
+            0 => Some("@<id> @board".into()),
+            1 => Some("@board".into()),
+            _ => None,
+        },
+        "delete" | "check" | "star" | "begin" => match arg_count {
+            0 if parts.len() == 1 => Some(" @<id> [@<id>...]".into()),
+            0 => Some("@<id> [@<id>...]".into()),
+            _ => Some("[@<id>...]".into()),
+        },
+        "search" => {
+            if parts.len() == 1 {
+                Some(" <term>".into())
+            } else if arg_count == 0 {
+                Some("<term>".into())
+            } else {
+                None
+            }
+        }
+        "priority" => match arg_count {
+            0 if parts.len() == 1 => Some(" @<id> 1-3".into()),
+            0 => Some("@<id> 1-3".into()),
+            1 => Some("1-3".into()),
+            _ => None,
+        },
+        "tag" => match arg_count {
+            0 if parts.len() == 1 => Some(" @<id> +add -remove".into()),
+            0 => Some("@<id> +add -remove".into()),
+            1 => Some("+add -remove".into()),
+            _ => Some("+add -remove".into()),
+        },
+        "rename-board" => match arg_count {
+            0 if parts.len() == 1 => Some(" @\"old\" @\"new\"".into()),
+            0 => Some("@\"old\" @\"new\"".into()),
+            1 => Some("@\"new\"".into()),
+            _ => None,
+        },
+        "encryption-key" => {
+            if parts.len() == 1 {
+                Some(" [set <base64-key>]".into())
+            } else if arg_count == 0 {
+                Some("[set <base64-key>]".into())
+            } else {
+                None
+            }
+        }
+        "reset" => {
+            if parts.len() == 1 {
+                Some(" credentials|data|all".into())
+            } else if arg_count == 0 {
+                Some("credentials|data|all".into())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Determine the input text color based on command validity.
+///
+/// - White (default): not a slash command yet (plain text input)
+/// - Green: the input parses as a complete, valid command
+/// - Yellow: the input is a recognized command prefix but incomplete
+/// - Red: the command name is invalid or arguments are malformed
+fn get_input_validation_style(input: &str) -> Style {
+    let trimmed = input.trim();
+    if !trimmed.starts_with('/') {
+        return Style::default();
     }
 
-    None
+    // Extract the command name
+    let parts: Vec<&str> = trimmed[1..].splitn(2, ' ').collect();
+    let cmd = parts[0].to_lowercase();
+
+    if cmd.is_empty() {
+        // Just typed "/" — neutral
+        return Style::default();
+    }
+
+    // Check if it's a recognized command name (exact or prefix)
+    let exact_match = COMMANDS.iter().any(|(name, _)| *name == cmd);
+    let prefix_match = COMMANDS.iter().any(|(name, _)| name.starts_with(&cmd));
+
+    if !exact_match && !prefix_match {
+        // Unknown command name — red
+        return Style::default().fg(Color::Rgb(255, 100, 100));
+    }
+
+    if !exact_match && prefix_match {
+        // Partial command name being typed — yellow/amber
+        return Style::default().fg(Color::Rgb(255, 200, 80));
+    }
+
+    // Exact command match — try full parse to see if arguments are valid
+    match command_parser::parse_command(trimmed) {
+        Ok(_) => Style::default().fg(Color::Rgb(100, 255, 100)), // valid — green
+        Err(_) => {
+            // Command is recognized but arguments are incomplete/wrong
+            if parts.len() == 1 || parts.get(1).map_or(true, |a| a.trim().is_empty()) {
+                // No arguments yet — just the command name, show as yellow (incomplete)
+                Style::default().fg(Color::Rgb(255, 200, 80))
+            } else {
+                // Has arguments but they're wrong — red
+                Style::default().fg(Color::Rgb(255, 100, 100))
+            }
+        }
+    }
 }
