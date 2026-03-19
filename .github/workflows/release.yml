@@ -524,8 +524,51 @@ jobs:
           cache-from: type=gha,scope=docker-mcp-server
           cache-to: type=gha,mode=max,scope=docker-mcp-server
 
+  publish-npm:
+    needs: [build-mcp-server]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js for npm publish
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        working-directory: packages/taskbook-mcp-server
+        run: bun install
+
+      - name: Build for npm
+        working-directory: packages/taskbook-mcp-server
+        run: bun run build:npm
+
+      - name: Set package version from tag
+        working-directory: packages/taskbook-mcp-server
+        run: |
+          VERSION="${TAG#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+
+      - name: Publish to npm
+        working-directory: packages/taskbook-mcp-server
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   release:
-    needs: [build-client, build-server, build-mcp-server, docker-server, docker-webui, docker-client, docker-mcp-server]
+    needs: [build-client, build-server, build-mcp-server, docker-server, docker-webui, docker-client, docker-mcp-server, publish-npm]
+    if: ${{ !cancelled() && needs.build-client.result == 'success' && needs.build-server.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

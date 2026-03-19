@@ -34,7 +34,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/tobiashochguertel/taskbook.git",
+    "url": "git+https://github.com/tobiashochguertel/taskbook.git",
     "directory": "packages/taskbook-mcp-server"
   },
   "homepage": "https://github.com/tobiashochguertel/taskbook/tree/master/packages/taskbook-mcp-server",
