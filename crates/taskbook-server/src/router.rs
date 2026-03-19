@@ -182,7 +182,7 @@ pub async fn build(
             "/api/v1/me/tokens",
             get(tokens::list_tokens).post(tokens::create_token),
         )
-        .route("/api/v1/me/tokens/{id}", delete(tokens::revoke_token))
+        .route("/api/v1/me/tokens/:id", delete(tokens::revoke_token))
         .route("/api/v1/items", get(items::get_items))
         .route("/api/v1/items", put(items::put_items))
         .route("/api/v1/items/archive", get(items::get_archive))
