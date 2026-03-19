@@ -7,11 +7,8 @@ interface SettingsDialogProps {
   onClose: () => void;
   token?: string;
   encryptionKey?: string;
-  username?: string;
-  email?: string;
   onKeyImport?: (key: string) => void;
   onKeyReset?: () => void;
-  onUsernameChange?: (newName: string) => void;
 }
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
@@ -26,21 +23,17 @@ const NAV_STYLES: { value: NavStyle; label: string; desc: string }[] = [
   { value: "burger", label: "Menu only", desc: "Burger menu" },
 ];
 
-type SettingsTab = "general" | "profile" | "security";
+type SettingsTab = "general" | "security";
 
 export function SettingsDialog({
   open,
   onClose,
   token: _token,
   encryptionKey,
-  username,
-  email,
   onKeyImport,
   onKeyReset,
-  onUsernameChange,
 }: SettingsDialogProps) {
   const { settings, update, isMobile } = useSettings();
-  const [editUsername, setEditUsername] = useState(username || "");
   const [showKey, setShowKey] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showReset, setShowReset] = useState(false);
@@ -48,12 +41,6 @@ export function SettingsDialog({
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 
   if (!open) return null;
-
-  const handleUpdateUsername = () => {
-    if (editUsername && editUsername !== username) {
-      onUsernameChange?.(editUsername);
-    }
-  };
 
   const generalSection = (
     <>
@@ -163,76 +150,6 @@ export function SettingsDialog({
         />
       </section>
     </>
-  );
-
-  const profileSection = (
-    <section>
-      <label
-        className="block text-xs md:text-sm font-semibold uppercase tracking-wider mb-3"
-        style={{ color: "var(--color-text-muted)" }}
-      >
-        Profile
-      </label>
-      <div className="space-y-3">
-        <div>
-          <label
-            className="block text-xs mb-1"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Username
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={editUsername}
-              onChange={(e) => setEditUsername(e.target.value)}
-              className="flex-1 p-2 rounded text-sm border-none outline-none"
-              style={{
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
-              }}
-            />
-            <button
-              type="button"
-              disabled={!editUsername || editUsername === username}
-              onClick={handleUpdateUsername}
-              className="px-3 py-2 rounded text-xs cursor-pointer border-none"
-              style={{
-                backgroundColor:
-                  editUsername && editUsername !== username
-                    ? "var(--color-accent)"
-                    : "var(--color-surface-hover)",
-                color:
-                  editUsername && editUsername !== username
-                    ? "white"
-                    : "var(--color-text-muted)",
-              }}
-            >
-              Save
-            </button>
-          </div>
-        </div>
-        {email && (
-          <div>
-            <label
-              className="block text-xs mb-1"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Email
-            </label>
-            <div
-              className="p-2 rounded text-sm"
-              style={{
-                backgroundColor: "var(--color-bg)",
-                color: "var(--color-text-muted)",
-              }}
-            >
-              {email}
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
   );
 
   const securitySection = (
@@ -438,7 +355,7 @@ export function SettingsDialog({
               className="flex border-b"
               style={{ borderColor: "var(--color-border)" }}
             >
-              {(["general", "profile", "security"] as SettingsTab[]).map(
+              {(["general", "security"] as SettingsTab[]).map(
                 (tab) => (
                   <button
                     key={tab}
@@ -466,7 +383,6 @@ export function SettingsDialog({
             </div>
             <div className="px-6 py-5 space-y-6">
               {activeTab === "general" && generalSection}
-              {activeTab === "profile" && profileSection}
               {activeTab === "security" && securitySection}
             </div>
           </>
@@ -476,7 +392,6 @@ export function SettingsDialog({
             className="px-6 py-5 space-y-6 overflow-y-auto"
             style={{ maxHeight: "80vh" }}
           >
-            {profileSection}
             {generalSection}
             {securitySection}
           </div>

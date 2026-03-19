@@ -57,11 +57,6 @@ export function BoardPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showArchiveView, setShowArchiveView] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("tasks");
-  const [username, setUsername] = useState<string | undefined>(undefined);
-
-  // Keep username in sync with user query data
-  const displayUsername = username ?? user.data?.username;
-  const userEmail = user.data?.email;
 
   // Custom boards stored in localStorage for empty boards
   const [customBoards, setCustomBoards] = useState<string[]>(() => {
@@ -535,12 +530,12 @@ export function BoardPage() {
             </h1>
           </a>
 
-          {/* Board selector (hidden on mobile with tabs — use drawer instead) */}
-          <div className="hidden md:block relative">
+          {/* Board selector — works on all screen sizes */}
+          <div className="relative">
             <select
               value={currentBoard}
               onChange={(e) => setSelectedBoard(e.target.value)}
-              className="appearance-none pr-8 pl-3 py-1.5 rounded text-sm cursor-pointer border-none"
+              className="appearance-none pr-6 pl-2 md:pr-8 md:pl-3 py-1 md:py-1.5 rounded text-xs md:text-sm cursor-pointer border-none"
               style={{
                 backgroundColor: "var(--color-bg)",
                 color: "var(--color-text)",
@@ -553,19 +548,11 @@ export function BoardPage() {
               ))}
             </select>
             <ChevronDown
-              size={14}
-              className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+              size={12}
+              className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: "var(--color-text-muted)" }}
             />
           </div>
-
-          {/* Mobile board indicator */}
-          <span
-            className="md:hidden text-xs"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            @{currentBoard}
-          </span>
         </div>
 
         <div className="flex items-center gap-1 md:gap-2">
@@ -732,8 +719,6 @@ export function BoardPage() {
         onClose={() => setShowSettings(false)}
         token={token ?? undefined}
         encryptionKey={encryptionKey ?? undefined}
-        username={displayUsername}
-        email={userEmail}
         onKeyImport={(key) => {
           if (token) {
             setCredentials(token, key);
@@ -744,13 +729,6 @@ export function BoardPage() {
           if (token) {
             api.resetEncryptionKey(token);
             setCredentials(token, null);
-          }
-        }}
-        onUsernameChange={(newName) => {
-          if (token) {
-            api
-              .updateMe(token, { username: newName })
-              .then((u) => setUsername(u.username));
           }
         }}
       />

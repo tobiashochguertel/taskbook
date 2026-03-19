@@ -46,75 +46,23 @@ fn version_long() -> &'static str {
     Box::leak(s.into_boxed_str())
 }
 
-const HELP_TEXT: &str = r#"
-  Usage
-    $ tb [<options> ...]
-
-    Options
-        none             Display board view
-      --archive, -a      Display archived items
-      --begin, -b        Start/pause task
-      --check, -c        Check/uncheck task
-      --clear            Delete all checked items
-      --copy, -y         Copy item description
-      --delete, -d       Delete item
-      --edit, -e         Edit item description
-      --edit-note        Edit note in external editor
-      --find, -f         Search for items
-      --help, -h         Display help message
-      --list, -l         List items by attributes
-      --move, -m         Move item between boards
-      --note, -n         Create note (opens editor if no description)
-      --priority, -p     Update priority of task
-      --restore, -r      Restore items from archive
-      --star, -s         Star/unstar item
-      --tag              Add/remove tags on item
-      --taskbook-dir     Define a custom taskbook directory
-      --task, -t         Create task
-      --timeline, -i     Display timeline view
-      --version, -v      Display installed version
-
-    Server commands
-      --register         Register a new server account
-      --login            Log in to an existing account (password-based)
-      --login-sso        Log in via browser SSO (OIDC) — opens browser automatically
-      --login-sso-manual Log in via SSO for headless/remote hosts (no browser needed)
-      --logout           Log out and delete credentials
-      --status           Show sync status
-      --reset-encryption-key  Reset encryption key (WARNING: deletes all data)
-      --migrate          Push local data to server
-      --set-token        Save a session token (from OIDC login) directly
-
-    Examples
-      $ tb
-      $ tb --archive
-      $ tb --begin 2 3
-      $ tb --check 1 2
-      $ tb --clear
-      $ tb --copy 1 2 3
-      $ tb --delete 4
-      $ tb --edit @3 Merge PR #42
-      $ tb --find documentation
-      $ tb --list pending coding
-      $ tb --move @1 cooking
-      $ tb --note @coding Mergesort worse-case O(nlogn)
-      $ tb --priority @3 2
-      $ tb --restore 4
-      $ tb --star 2
-      $ tb --task @coding @reviews Review PR #42
-      $ tb --task @coding +urgent Improve documentation
-      $ tb --task Make some buttercream
-      $ tb --tag @3 +urgent +frontend
-      $ tb --tag @3 -urgent
-      $ tb --list +urgent
-      $ tb --timeline
-      $ tb --register --server http://localhost:8080 --username user --email a@b.com --password secret123
-      $ tb --login --server http://localhost:8080 --username user --password secret123 --key <base64>
-      $ tb --login --server http://localhost:8080 --token <TOKEN> --key <base64>
-      $ tb --set-token --server http://localhost:8080 --token <TOKEN> --key <base64>
-      $ tb --logout
-      $ tb --status
-      $ tb --migrate
+const EXAMPLES_TEXT: &str = r#"
+  Examples
+    $ tb                          Display board view (TUI)
+    $ tb --task Make breakfast    Create a task
+    $ tb --note @ideas Remember  Create a note on the "ideas" board
+    $ tb --check 1 2             Check/uncheck tasks 1 and 2
+    $ tb --begin 3               Start/pause task 3
+    $ tb --edit @3 Fix typo      Edit item 3's description
+    $ tb --move @1 cooking       Move item 1 to "cooking" board
+    $ tb --priority @3 2         Set task 3 priority to 2
+    $ tb --tag @3 +urgent        Add "urgent" tag to item 3
+    $ tb --find documentation    Search for "documentation"
+    $ tb --list +urgent          List items tagged "urgent"
+    $ tb --login-sso             Log in via browser SSO
+    $ tb --tokens                List personal access tokens
+    $ tb --create-token ci       Create a token named "ci"
+    $ tb --status                Show sync status
 "#;
 
 #[derive(Parser)]
@@ -123,7 +71,7 @@ const HELP_TEXT: &str = r#"
     version = env!("CARGO_PKG_VERSION"),
     long_version = version_long(),
     about = "Tasks, boards & notes for the command-line habitat",
-    after_help = HELP_TEXT
+    after_help = EXAMPLES_TEXT
 )]
 struct Cli {
     /// Input arguments (task description, IDs, search terms, etc.)
