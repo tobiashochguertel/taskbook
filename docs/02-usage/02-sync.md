@@ -1,3 +1,11 @@
+---
+title: "Sync & Encryption"
+description: "Setting up encrypted sync between devices"
+last_updated: "2025-07-18"
+audience:
+  - endusers
+---
+
 # Sync & Encryption
 
 Taskbook supports syncing your tasks across multiple devices using an encrypted server sync. All data is encrypted client-side before transmission, ensuring the server cannot read your tasks.
@@ -9,15 +17,17 @@ Taskbook supports syncing your tasks across multiple devices using an encrypted 
 3. **Storage**: The server stores only encrypted blobs - it cannot read your data
 4. **Sync**: Each client decrypts data locally using your encryption key
 
-```
-┌─────────────────┐         ┌─────────────────┐
-│     Client      │         │     Server      │
-│                 │         │                 │
-│  Plaintext      │         │  Encrypted      │
-│  Tasks/Notes    │◄───────►│  Blobs Only     │
-│                 │  HTTPS  │                 │
-│  Encryption Key │         │  No Key Access  │
-└─────────────────┘         └─────────────────┘
+```mermaid
+flowchart LR
+    subgraph Client
+        A["Plaintext\nTasks/Notes"]
+        B["Encryption Key"]
+    end
+    subgraph Server
+        C["Encrypted\nBlobs Only"]
+        D["No Key Access"]
+    end
+    A <-->|HTTPS| C
 ```
 
 ## Setup

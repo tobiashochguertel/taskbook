@@ -1,3 +1,11 @@
+---
+title: "Observability"
+description: "Prometheus metrics, Grafana dashboards, and logging"
+last_updated: "2025-07-18"
+audience:
+  - devops
+---
+
 # Observability (Prometheus Metrics)
 
 The taskbook server exposes a `/metrics` endpoint in Prometheus text format. Metrics are always enabled — no configuration is required.

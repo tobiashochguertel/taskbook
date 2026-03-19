@@ -1,3 +1,11 @@
+---
+title: "Kubernetes Deployment"
+description: "Deploying the taskbook server to Kubernetes"
+last_updated: "2025-07-18"
+audience:
+  - devops
+---
+
 # Kubernetes Deployment
 
 This guide covers deploying the taskbook server to Kubernetes.
@@ -404,7 +412,7 @@ spec:
       interval: 15s
 ```
 
-A pre-built Grafana dashboard is available — see the [Observability guide](observability.md) for details.
+A pre-built Grafana dashboard is available — see the [Observability guide](03-observability.md) for details.
 
 ### Logging
 

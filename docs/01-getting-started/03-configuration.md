@@ -1,3 +1,11 @@
+---
+title: "Configuration"
+description: "Client configuration options for taskbook"
+last_updated: "2025-07-18"
+audience:
+  - endusers
+---
+
 # Configuration
 
 Client configuration is stored in `~/.taskbook.json`. The file is created automatically with default values on first run.
@@ -169,7 +177,7 @@ Configuration for server sync. This is typically managed automatically by the `-
 
 When `enabled` is `true`, all task operations are synced to the server. The client stores encrypted data locally as a cache and syncs with the server on each operation.
 
-See [Sync & Encryption](sync.md) for setup instructions.
+See [Sync & Encryption](../02-usage/02-sync.md) for setup instructions.
 
 ## Environment Variables
 

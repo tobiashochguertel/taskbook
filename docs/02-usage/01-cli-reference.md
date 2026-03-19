@@ -1,3 +1,11 @@
+---
+title: "CLI Reference"
+description: "Complete command reference for the tb CLI"
+last_updated: "2025-07-18"
+audience:
+  - endusers
+---
+
 # CLI Reference
 
 ## Synopsis
@@ -275,7 +283,7 @@ tb --copy 1 2 3
 
 ## Server Commands
 
-These commands are used for syncing with a remote server. See [Sync & Encryption](sync.md) for details.
+These commands are used for syncing with a remote server. See [Sync & Encryption](02-sync.md) for details.
 
 ### Register Account
 

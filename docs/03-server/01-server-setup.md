@@ -1,3 +1,11 @@
+---
+title: "Server Setup"
+description: "Running the taskbook sync server"
+last_updated: "2025-07-18"
+audience:
+  - devops
+---
+
 # Server Setup
 
 The taskbook server (`tb-server`) provides sync capabilities for accessing your tasks across multiple devices. All data is encrypted client-side before being sent to the server.
@@ -276,7 +284,7 @@ taskbook.example.com {
 
 ## Monitoring
 
-The server exposes a `/metrics` endpoint with Prometheus metrics (request counts, latency histograms, DB pool gauges). No configuration required — metrics are always available. For scraping setup and a pre-built Grafana dashboard, see the [Observability guide](observability.md).
+The server exposes a `/metrics` endpoint with Prometheus metrics (request counts, latency histograms, DB pool gauges). No configuration required — metrics are always available. For scraping setup and a pre-built Grafana dashboard, see the [Observability guide](03-observability.md).
 
 ### Health Check
 

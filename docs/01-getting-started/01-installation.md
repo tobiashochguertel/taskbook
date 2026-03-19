@@ -1,3 +1,12 @@
+---
+title: "Installation"
+description: "How to install the taskbook client and server"
+last_updated: "2025-07-18"
+audience:
+  - endusers
+  - devops
+---
+
 # Installation
 
 ## Client (tb)
@@ -78,7 +87,7 @@ cargo install --git https://github.com/taskbook-sh/taskbook
 
 ## Server (tb-server)
 
-The server is only needed if you want to sync tasks across multiple devices. See [Server Setup](server.md) for details.
+The server is only needed if you want to sync tasks across multiple devices. See [Server Setup](../03-server/01-server-setup.md) for details.
 
 ### Pre-built Binaries
 
