@@ -176,10 +176,10 @@ The [MCP server](packages/taskbook-mcp-server) exposes taskbook operations as to
 
 ```bash
 # stdio transport (default for editor integrations)
-bunx @taskbook/mcp-server
+bunx @tobiashochguertel/taskbook-mcp-server
 
 # HTTP transport (for remote/Docker deployments)
-TB_MCP_TRANSPORT=http TB_MCP_PORT=3100 bunx @taskbook/mcp-server
+TB_MCP_TRANSPORT=http TB_MCP_PORT=3100 bunx @tobiashochguertel/taskbook-mcp-server
 ```
 
 See the [MCP server README](packages/taskbook-mcp-server/README.md) for configuration and tool reference.
