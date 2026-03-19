@@ -270,6 +270,18 @@ struct Cli {
     /// Reset encryption key (WARNING: deletes all encrypted data)
     #[arg(long)]
     reset_encryption_key: bool,
+
+    /// List Personal Access Tokens
+    #[arg(long)]
+    tokens: bool,
+
+    /// Create a new Personal Access Token
+    #[arg(long)]
+    create_token: Option<String>,
+
+    /// Revoke a Personal Access Token by name or ID
+    #[arg(long)]
+    revoke_token: Option<String>,
 }
 
 fn main() {
@@ -352,6 +364,30 @@ fn main() {
 
     if cli.reset_encryption_key {
         if let Err(e) = auth::reset_encryption_key() {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        return;
+    }
+
+    if cli.tokens {
+        if let Err(e) = auth::list_tokens() {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        return;
+    }
+
+    if let Some(ref name) = cli.create_token {
+        if let Err(e) = auth::create_token(name) {
+            eprintln!("Error: {}", e);
+            process::exit(1);
+        }
+        return;
+    }
+
+    if let Some(ref name_or_id) = cli.revoke_token {
+        if let Err(e) = auth::revoke_token(name_or_id) {
             eprintln!("Error: {}", e);
             process::exit(1);
         }

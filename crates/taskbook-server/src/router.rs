@@ -13,7 +13,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 use uuid::Uuid;
 
 use crate::config::OidcConfig;
-use crate::handlers::{events, health, items, user};
+use crate::handlers::{events, health, items, tokens, user};
 use crate::metrics_middleware::HttpMetricsLayer;
 use crate::openapi::ApiDoc;
 use crate::rate_limit::RateLimiter;
@@ -178,6 +178,11 @@ pub async fn build(
                 .post(user::store_encryption_key)
                 .delete(user::reset_encryption_key),
         )
+        .route(
+            "/api/v1/me/tokens",
+            get(tokens::list_tokens).post(tokens::create_token),
+        )
+        .route("/api/v1/me/tokens/{id}", delete(tokens::revoke_token))
         .route("/api/v1/items", get(items::get_items))
         .route("/api/v1/items", put(items::put_items))
         .route("/api/v1/items/archive", get(items::get_archive))

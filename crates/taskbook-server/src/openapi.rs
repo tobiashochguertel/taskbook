@@ -23,6 +23,9 @@ use utoipa::OpenApi;
         crate::handlers::items::put_items,
         crate::handlers::items::get_archive,
         crate::handlers::items::put_archive,
+        crate::handlers::tokens::create_token,
+        crate::handlers::tokens::list_tokens,
+        crate::handlers::tokens::revoke_token,
     ),
     components(schemas(
         crate::handlers::user::RegisterRequest,
@@ -37,12 +40,17 @@ use utoipa::OpenApi;
         crate::handlers::items::EncryptedItemData,
         crate::handlers::items::ItemsResponse,
         crate::handlers::items::PutItemsRequest,
+        crate::handlers::tokens::CreateTokenRequest,
+        crate::handlers::tokens::CreateTokenResponse,
+        crate::handlers::tokens::TokenInfo,
+        crate::handlers::tokens::TokenListResponse,
     )),
     tags(
         (name = "system", description = "Health and system endpoints"),
         (name = "auth", description = "Authentication (register, login, logout)"),
         (name = "items", description = "Encrypted item sync"),
         (name = "encryption", description = "Encryption key management"),
+        (name = "tokens", description = "Personal Access Token management"),
     ),
     modifiers(&SecurityAddon)
 )]

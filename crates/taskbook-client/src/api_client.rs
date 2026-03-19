@@ -273,4 +273,90 @@ impl ApiClient {
             Err(Self::error_from_response(resp, "failed to save archive"))
         }
     }
+
+    // ── Personal Access Token endpoints ─────────────────────────────────
+
+    pub fn create_token(&self, name: &str, expires_in_days: Option<i64>) -> Result<CreateTokenResponse> {
+        let auth = self.auth_header()?;
+        let body = serde_json::json!({
+            "name": name,
+            "expires_in_days": expires_in_days,
+        });
+        let resp = self
+            .client
+            .post(self.url("/api/v1/me/tokens"))
+            .header("Authorization", &auth)
+            .json(&body)
+            .send()
+            .map_err(|e| TaskbookError::Network(e.to_string()))?;
+
+        if resp.status().is_success() {
+            resp.json::<CreateTokenResponse>()
+                .map_err(|e| TaskbookError::Network(e.to_string()))
+        } else {
+            Err(Self::error_from_response(resp, "failed to create token"))
+        }
+    }
+
+    pub fn list_tokens(&self) -> Result<TokenListResponse> {
+        let auth = self.auth_header()?;
+        let resp = self
+            .client
+            .get(self.url("/api/v1/me/tokens"))
+            .header("Authorization", &auth)
+            .send()
+            .map_err(|e| TaskbookError::Network(e.to_string()))?;
+
+        if resp.status().is_success() {
+            resp.json::<TokenListResponse>()
+                .map_err(|e| TaskbookError::Network(e.to_string()))
+        } else {
+            Err(Self::error_from_response(resp, "failed to list tokens"))
+        }
+    }
+
+    pub fn revoke_token(&self, token_id: &str) -> Result<()> {
+        let auth = self.auth_header()?;
+        let resp = self
+            .client
+            .delete(self.url(&format!("/api/v1/me/tokens/{}", token_id)))
+            .header("Authorization", &auth)
+            .send()
+            .map_err(|e| TaskbookError::Network(e.to_string()))?;
+
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(Self::error_from_response(resp, "failed to revoke token"))
+        }
+    }
+}
+
+// ── PAT response types ──────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+pub struct CreateTokenResponse {
+    pub id: String,
+    pub name: String,
+    pub token: String,
+    pub token_prefix: String,
+    pub expires_at: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Deserialize)]
+pub struct TokenListResponse {
+    pub tokens: Vec<TokenInfo>,
+}
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+pub struct TokenInfo {
+    pub id: String,
+    pub name: String,
+    pub token_prefix: String,
+    pub expires_at: Option<String>,
+    pub last_used_at: Option<String>,
+    pub created_at: String,
 }

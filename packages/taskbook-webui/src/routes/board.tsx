@@ -9,6 +9,7 @@ import {
   Settings,
   StickyNote,
   Trash2,
+  User,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CommandPalette } from "../components/ui/command-palette";
@@ -642,21 +643,38 @@ export function BoardPage() {
 
           {/* Settings gear — always visible when burger menu is hidden */}
           {!showBurger && (
-            <button
-              type="button"
-              onClick={() => setShowSettings(true)}
-              className="flex items-center justify-center cursor-pointer border-none rounded-md"
-              style={{
-                color: "var(--color-text-muted)",
-                background: "none",
-                width: 44,
-                height: 44,
-              }}
-              title="Settings"
-              aria-label="Settings"
-            >
-              <Settings size={16} />
-            </button>
+            <>
+              <a
+                href="/profile"
+                className="flex items-center justify-center cursor-pointer border-none rounded-md"
+                style={{
+                  color: "var(--color-text-muted)",
+                  background: "none",
+                  width: 44,
+                  height: 44,
+                  textDecoration: "none",
+                }}
+                title="Profile & Tokens"
+                aria-label="Profile & Tokens"
+              >
+                <User size={16} />
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowSettings(true)}
+                className="flex items-center justify-center cursor-pointer border-none rounded-md"
+                style={{
+                  color: "var(--color-text-muted)",
+                  background: "none",
+                  width: 44,
+                  height: 44,
+                }}
+                title="Settings"
+                aria-label="Settings"
+              >
+                <Settings size={16} />
+              </button>
+            </>
           )}
 
           {/* Logout only on desktop (mobile uses drawer) */}
