@@ -130,158 +130,162 @@ struct Cli {
     #[arg(trailing_var_arg = true)]
     input: Vec<String>,
 
-    /// Display archived items
-    #[arg(short = 'a', long)]
-    archive: bool,
+    // ── Item Actions ─────────────────────────────────────────────────
+    /// Create task
+    #[arg(short = 't', long, help_heading = "Item Actions")]
+    task: bool,
 
-    /// Start/pause task
-    #[arg(short = 'b', long)]
-    begin: bool,
+    /// Create note
+    #[arg(short = 'n', long, help_heading = "Item Actions")]
+    note: bool,
 
     /// Check/uncheck task
-    #[arg(short = 'c', long)]
+    #[arg(short = 'c', long, help_heading = "Item Actions")]
     check: bool,
 
-    /// Delete all checked items
-    #[arg(long)]
-    clear: bool,
-
-    /// Copy item description to clipboard
-    #[arg(short = 'y', long)]
-    copy: bool,
+    /// Start/pause task
+    #[arg(short = 'b', long, help_heading = "Item Actions")]
+    begin: bool,
 
     /// Delete item
-    #[arg(short = 'd', long)]
+    #[arg(short = 'd', long, help_heading = "Item Actions")]
     delete: bool,
 
     /// Edit item description
-    #[arg(short = 'e', long)]
+    #[arg(short = 'e', long, help_heading = "Item Actions")]
     edit: bool,
 
     /// Edit note in external editor
-    #[arg(long)]
+    #[arg(long, help_heading = "Item Actions")]
     edit_note: bool,
 
-    /// Search for items
-    #[arg(short = 'f', long)]
-    find: bool,
-
-    /// List items by attributes
-    #[arg(short = 'l', long)]
-    list: bool,
-
     /// Move item between boards
-    #[arg(short = 'm', long)]
+    #[arg(short = 'm', long, help_heading = "Item Actions")]
     r#move: bool,
 
-    /// Create note
-    #[arg(short = 'n', long)]
-    note: bool,
-
     /// Update priority of task
-    #[arg(short = 'p', long)]
+    #[arg(short = 'p', long, help_heading = "Item Actions")]
     priority: bool,
 
-    /// Restore items from archive
-    #[arg(short = 'r', long)]
-    restore: bool,
-
     /// Star/unstar item
-    #[arg(short = 's', long)]
+    #[arg(short = 's', long, help_heading = "Item Actions")]
     star: bool,
 
     /// Add or remove tags on an item
-    #[arg(long)]
+    #[arg(long, help_heading = "Item Actions")]
     tag: bool,
 
-    /// Create task
-    #[arg(short = 't', long)]
-    task: bool,
+    /// Copy item description to clipboard
+    #[arg(short = 'y', long, help_heading = "Item Actions")]
+    copy: bool,
+
+    // ── View & Search ────────────────────────────────────────────────
+    /// Display archived items
+    #[arg(short = 'a', long, help_heading = "View & Search")]
+    archive: bool,
+
+    /// Search for items
+    #[arg(short = 'f', long, help_heading = "View & Search")]
+    find: bool,
+
+    /// List items by attributes
+    #[arg(short = 'l', long, help_heading = "View & Search")]
+    list: bool,
 
     /// Display timeline view
-    #[arg(short = 'i', long)]
+    #[arg(short = 'i', long, help_heading = "View & Search")]
     timeline: bool,
 
-    /// Define a custom taskbook directory
-    #[arg(long = "taskbook-dir", value_name = "PATH")]
-    taskbook_dir: Option<PathBuf>,
+    /// Restore items from archive
+    #[arg(short = 'r', long, help_heading = "View & Search")]
+    restore: bool,
 
-    /// Run in CLI mode (non-interactive)
-    #[arg(long)]
-    cli: bool,
+    /// Delete all checked items
+    #[arg(long, help_heading = "View & Search")]
+    clear: bool,
 
-    // --- Server commands ---
+    // ── Authentication ───────────────────────────────────────────────
     /// Register a new server account
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     register: bool,
 
     /// Log in to an existing server account
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     login: bool,
 
-    /// Log in via browser-based SSO (OIDC) — opens browser for authentication
-    #[arg(long)]
+    /// Log in via browser-based SSO (OIDC) — opens browser
+    #[arg(long, help_heading = "Authentication")]
     login_sso: bool,
 
     /// Log in via SSO for headless/remote hosts — shows URL to open on any device
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     login_sso_manual: bool,
 
     /// Log out and delete credentials
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     logout: bool,
 
-    /// Show sync status
-    #[arg(long)]
-    status: bool,
-
-    /// Push local data to server
-    #[arg(long)]
-    migrate: bool,
-
     /// Save a session token directly (e.g. from OIDC browser login)
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     set_token: bool,
 
-    /// Session token value (for --set-token or --login without password)
-    #[arg(long)]
+    /// Session token value (for --set-token or --login)
+    #[arg(long, help_heading = "Authentication")]
     token: Option<String>,
 
     /// Server URL for register/login
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     server: Option<String>,
 
     /// Username for register/login
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     username: Option<String>,
 
     /// Email for register
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     email: Option<String>,
 
     /// Password for register/login
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     password: Option<String>,
 
     /// Encryption key (base64) for login
-    #[arg(long)]
+    #[arg(long, help_heading = "Authentication")]
     key: Option<String>,
 
-    /// Reset encryption key (WARNING: deletes all encrypted data)
-    #[arg(long)]
-    reset_encryption_key: bool,
+    // ── User Profile & Tokens ────────────────────────────────────────
+    /// Show sync status and connection info
+    #[arg(long, help_heading = "User Profile & Tokens")]
+    status: bool,
 
     /// List Personal Access Tokens
-    #[arg(long)]
+    #[arg(long, help_heading = "User Profile & Tokens")]
     tokens: bool,
 
     /// Create a new Personal Access Token
-    #[arg(long)]
+    #[arg(long, help_heading = "User Profile & Tokens")]
     create_token: Option<String>,
 
     /// Revoke a Personal Access Token by name or ID
-    #[arg(long)]
+    #[arg(long, help_heading = "User Profile & Tokens")]
     revoke_token: Option<String>,
+
+    /// Reset encryption key (WARNING: deletes all encrypted data)
+    #[arg(long, help_heading = "User Profile & Tokens")]
+    reset_encryption_key: bool,
+
+    // ── General ──────────────────────────────────────────────────────
+    /// Push local data to server
+    #[arg(long, help_heading = "General")]
+    migrate: bool,
+
+    /// Define a custom taskbook directory
+    #[arg(long = "taskbook-dir", value_name = "PATH", help_heading = "General")]
+    taskbook_dir: Option<PathBuf>,
+
+    /// Run in CLI mode (non-interactive)
+    #[arg(long, help_heading = "General")]
+    cli: bool,
 }
 
 fn main() {
