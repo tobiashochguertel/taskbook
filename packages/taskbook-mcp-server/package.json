@@ -1,20 +1,22 @@
 {
-  "name": "@taskbook/mcp-server",
-  "version": "1.0.0",
+  "name": "@tobiashochguertel/taskbook-mcp-server",
+  "version": "1.9.0",
   "description": "MCP (Model Context Protocol) server for Taskbook — exposes task management tools and resources to LLM clients",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "taskbook-mcp": "./dist/index.js"
+    "taskbook-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun --sourcemap",
+    "build:npm": "bun build src/index.ts --outdir dist --target bun --packages external --sourcemap",
     "build:standalone": "bun build src/index.ts --compile --outfile dist/taskbook-mcp",
     "dev": "bun run --watch src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "bunx biome check src/ tests/",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build:npm"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.14.0",
@@ -25,6 +27,39 @@
     "typescript": "^5.8.3"
   },
   "files": [
-    "dist"
-  ]
+    "dist/index.js",
+    "dist/index.js.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tobiashochguertel/taskbook.git",
+    "directory": "packages/taskbook-mcp-server"
+  },
+  "homepage": "https://github.com/tobiashochguertel/taskbook/tree/master/packages/taskbook-mcp-server",
+  "bugs": {
+    "url": "https://github.com/tobiashochguertel/taskbook/issues"
+  },
+  "author": "Tobias Hochgürtel <tobias.hochguertel@googlemail.com>",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "taskbook",
+    "task-management",
+    "ai",
+    "llm",
+    "copilot",
+    "claude",
+    "cursor"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }
