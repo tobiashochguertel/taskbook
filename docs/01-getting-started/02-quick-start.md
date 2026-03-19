@@ -10,7 +10,7 @@ audience:
 
 ## Install
 
-Download the latest `tb` binary from [GitHub Releases](https://github.com/taskbook-sh/taskbook/releases) and place it on your `PATH`.
+Download the latest `tb` binary from [GitHub Releases](https://github.com/tobiashochguertel/taskbook/releases) and place it on your `PATH`.
 
 See [Installation](01-installation.md) for all installation methods (Nix, Cargo, build from source).
 

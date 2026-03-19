@@ -67,7 +67,7 @@ graph TB
 
 ## Quick Links
 
-- **Install**: [Download binaries](https://github.com/taskbook-sh/taskbook/releases) · [Build from source](01-getting-started/01-installation.md#build-from-source)
+- **Install**: [Download binaries](https://github.com/tobiashochguertel/taskbook/releases) · [Build from source](01-getting-started/01-installation.md#build-from-source)
 - **Use**: [All CLI commands](02-usage/01-cli-reference.md) · [Set up sync](02-usage/02-sync.md)
 - **Deploy**: [Docker Compose](03-server/01-server-setup.md#quick-start-with-docker-compose) · [Kubernetes](03-server/02-kubernetes.md)
 - **Monitor**: [Prometheus metrics](03-server/03-observability.md) · [Grafana dashboard](03-server/03-observability.md#grafana-dashboard)

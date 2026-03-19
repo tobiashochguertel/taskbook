@@ -4,19 +4,19 @@ let
 
   assets = {
     x86_64-linux = {
-      url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-linux-x86_64.tar.gz";
+      url = "https://github.com/tobiashochguertel/taskbook/releases/download/v${version}/tb-linux-x86_64.tar.gz";
       hash = "sha256-UBhQR3wDyfxo/XzN6zZ02XbYm6pqpYEfqHLzt0q/yJY=";
     };
     aarch64-linux = {
-      url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-linux-aarch64.tar.gz";
+      url = "https://github.com/tobiashochguertel/taskbook/releases/download/v${version}/tb-linux-aarch64.tar.gz";
       hash = "sha256-Mu8MBhAnmu1QYSkcnhmvovDF4PR77V5CQHO8LtvMcps=";
     };
     x86_64-darwin = {
-      url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-darwin-x86_64.tar.gz";
+      url = "https://github.com/tobiashochguertel/taskbook/releases/download/v${version}/tb-darwin-x86_64.tar.gz";
       hash = "sha256-gtmCPkTgJ5d7UGyd5FiBCCrck2b8jG5zD0q4vM6++Yo=";
     };
     aarch64-darwin = {
-      url = "https://github.com/taskbook-sh/taskbook/releases/download/v${version}/tb-darwin-aarch64.tar.gz";
+      url = "https://github.com/tobiashochguertel/taskbook/releases/download/v${version}/tb-darwin-aarch64.tar.gz";
       hash = "sha256-blnmryZNSS+BfOIyJhvda8bV775T3uYp7qXNQAYzL2Y=";
     };
   };
@@ -44,7 +44,7 @@ in
 
     meta = with final.lib; {
       description = "Tasks, boards & notes for the command-line habitat";
-      homepage = "https://github.com/taskbook-sh/taskbook";
+      homepage = "https://github.com/tobiashochguertel/taskbook";
       license = licenses.mit;
       mainProgram = "tb";
       platforms = builtins.attrNames assets;

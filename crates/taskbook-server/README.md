@@ -52,7 +52,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   server:
-    image: ghcr.io/taskbook-sh/taskbook-server:latest
+    image: ghcr.io/tobiashochguertel/taskbook-server:latest
     depends_on: [db]
     ports:
       - "8080:8080"

@@ -37,18 +37,18 @@ A fast, TUI-based command-line client for managing tasks and notes directly from
 
 ### Binary Download
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/taskbook-sh/taskbook/releases):
+Download the latest release for your platform from [GitHub Releases](https://github.com/tobiashochguertel/taskbook/releases):
 
 ```bash
 # Linux (x86_64)
-curl -L https://github.com/taskbook-sh/taskbook/releases/latest/download/tb-linux-amd64 -o tb
+curl -L https://github.com/tobiashochguertel/taskbook/releases/latest/download/tb-linux-amd64 -o tb
 chmod +x tb && mv tb ~/.local/bin/
 ```
 
 ### Cargo Install
 
 ```bash
-cargo install --git https://github.com/taskbook-sh/taskbook
+cargo install --git https://github.com/tobiashochguertel/taskbook
 ```
 
 Requires Rust 1.75+.
@@ -56,13 +56,13 @@ Requires Rust 1.75+.
 ### Nix Flake
 
 ```bash
-nix run github:taskbook-sh/taskbook
+nix run github:tobiashochguertel/taskbook
 ```
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/taskbook-sh/taskbook.git
+git clone https://github.com/tobiashochguertel/taskbook.git
 cd taskbook
 cargo build --release
 cp target/release/tb ~/.local/bin/

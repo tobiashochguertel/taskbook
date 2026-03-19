@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Project Overview
 
-Taskbook-rs is a Rust port of the Node.js [taskbook](https://github.com/klaussinani/taskbook) CLI application. It provides task and note management from the command line with board organization, priority levels, and timeline views. It supports both local file storage and remote server sync with client-side encryption.
+Taskbook-rs is a Rust port of the Node.js [taskbook](https://github.com/klaussinani/taskbook) CLI application, maintained as a fork at [tobiashochguertel/taskbook](https://github.com/tobiashochguertel/taskbook). It provides task and note management from the command line with board organization, priority levels, and timeline views. It supports both local file storage and remote server sync with client-side encryption, OIDC/SSO authentication, a React WebUI, and an MCP server for AI tool integration.
 
 ## Build & Development
 

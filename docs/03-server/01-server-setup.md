@@ -21,7 +21,7 @@ The easiest way to run the server is with Docker Compose:
 
 ```bash
 # Clone the repository
-git clone https://github.com/taskbook-sh/taskbook.git
+git clone https://github.com/tobiashochguertel/taskbook.git
 cd taskbook
 
 # Start the server and database

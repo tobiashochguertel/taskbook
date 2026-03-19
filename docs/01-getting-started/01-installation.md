@@ -15,7 +15,7 @@ The `tb` command-line tool is all you need for local task management.
 
 ### Pre-built Binaries
 
-Download the latest binary for your platform from [GitHub Releases](https://github.com/taskbook-sh/taskbook/releases).
+Download the latest binary for your platform from [GitHub Releases](https://github.com/tobiashochguertel/taskbook/releases).
 
 ### Build from Source
 
@@ -23,7 +23,7 @@ Requires Rust 1.70 or later.
 
 ```bash
 # Clone the repository
-git clone https://github.com/taskbook-sh/taskbook.git
+git clone https://github.com/tobiashochguertel/taskbook.git
 cd taskbook
 
 # Build release binary
@@ -42,7 +42,7 @@ Add to your system flake:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    taskbook.url = "github:taskbook-sh/taskbook";
+    taskbook.url = "github:tobiashochguertel/taskbook";
   };
 
   outputs = { nixpkgs, taskbook, ... }: {
@@ -76,13 +76,13 @@ Add to your system flake:
 Or run directly:
 
 ```bash
-nix run github:taskbook-sh/taskbook
+nix run github:tobiashochguertel/taskbook
 ```
 
 ### Cargo Install
 
 ```bash
-cargo install --git https://github.com/taskbook-sh/taskbook
+cargo install --git https://github.com/tobiashochguertel/taskbook
 ```
 
 ## Server (tb-server)
@@ -91,7 +91,7 @@ The server is only needed if you want to sync tasks across multiple devices. See
 
 ### Pre-built Binaries
 
-Download from [GitHub Releases](https://github.com/taskbook-sh/taskbook/releases).
+Download from [GitHub Releases](https://github.com/tobiashochguertel/taskbook/releases).
 
 ### Build from Source
 
