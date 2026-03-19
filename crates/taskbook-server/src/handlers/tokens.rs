@@ -146,7 +146,17 @@ pub async fn list_tokens(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<TokenListResponse>> {
-    let rows = sqlx::query_as::<_, (Uuid, String, String, Option<DateTime<Utc>>, Option<DateTime<Utc>>, DateTime<Utc>)>(
+    let rows = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            String,
+            String,
+            Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>,
+            DateTime<Utc>,
+        ),
+    >(
         r#"SELECT id, name, token_prefix, expires_at, last_used_at, created_at
            FROM personal_access_tokens
            WHERE user_id = $1
@@ -191,13 +201,12 @@ pub async fn revoke_token(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    let result =
-        sqlx::query("DELETE FROM personal_access_tokens WHERE id = $1 AND user_id = $2")
-            .bind(id)
-            .bind(auth.user_id)
-            .execute(&state.pool)
-            .await
-            .map_err(ServerError::Database)?;
+    let result = sqlx::query("DELETE FROM personal_access_tokens WHERE id = $1 AND user_id = $2")
+        .bind(id)
+        .bind(auth.user_id)
+        .execute(&state.pool)
+        .await
+        .map_err(ServerError::Database)?;
 
     if result.rows_affected() == 0 {
         return Err(ServerError::Validation("token not found".into()));

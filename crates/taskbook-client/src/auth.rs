@@ -545,9 +545,8 @@ pub fn reset_encryption_key() -> Result<()> {
 // ---------------------------------------------------------------------------
 
 pub fn list_tokens() -> Result<()> {
-    let creds = Credentials::load()?.ok_or_else(|| {
-        TaskbookError::Auth("not logged in — run `tb --login` first".to_string())
-    })?;
+    let creds = Credentials::load()?
+        .ok_or_else(|| TaskbookError::Auth("not logged in — run `tb --login` first".to_string()))?;
     let client = ApiClient::new(&creds.server_url, Some(&creds.token));
     let resp = client.list_tokens()?;
 
@@ -576,9 +575,8 @@ pub fn list_tokens() -> Result<()> {
 }
 
 pub fn create_token(name: &str) -> Result<()> {
-    let creds = Credentials::load()?.ok_or_else(|| {
-        TaskbookError::Auth("not logged in — run `tb --login` first".to_string())
-    })?;
+    let creds = Credentials::load()?
+        .ok_or_else(|| TaskbookError::Auth("not logged in — run `tb --login` first".to_string()))?;
     let client = ApiClient::new(&creds.server_url, Some(&creds.token));
     let resp = client.create_token(name, None)?;
 
@@ -599,9 +597,8 @@ pub fn create_token(name: &str) -> Result<()> {
 }
 
 pub fn revoke_token(name_or_id: &str) -> Result<()> {
-    let creds = Credentials::load()?.ok_or_else(|| {
-        TaskbookError::Auth("not logged in — run `tb --login` first".to_string())
-    })?;
+    let creds = Credentials::load()?
+        .ok_or_else(|| TaskbookError::Auth("not logged in — run `tb --login` first".to_string()))?;
     let client = ApiClient::new(&creds.server_url, Some(&creds.token));
 
     // If it looks like a UUID, use directly; otherwise look up by name.

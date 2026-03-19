@@ -276,7 +276,11 @@ impl ApiClient {
 
     // ── Personal Access Token endpoints ─────────────────────────────────
 
-    pub fn create_token(&self, name: &str, expires_in_days: Option<i64>) -> Result<CreateTokenResponse> {
+    pub fn create_token(
+        &self,
+        name: &str,
+        expires_in_days: Option<i64>,
+    ) -> Result<CreateTokenResponse> {
         let auth = self.auth_header()?;
         let body = serde_json::json!({
             "name": name,
