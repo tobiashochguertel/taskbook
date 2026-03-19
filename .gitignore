@@ -25,3 +25,4 @@ k8s/
 .DS_Store
 result
 binaries/
+docs/prompts/
