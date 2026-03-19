@@ -1,6 +1,6 @@
 {
   "name": "@tobiashochguertel/taskbook-mcp-server",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "MCP (Model Context Protocol) server for Taskbook — exposes task management tools and resources to LLM clients",
   "type": "module",
   "main": "dist/index.js",
