@@ -539,3 +539,99 @@ pub fn reset_encryption_key() -> Result<()> {
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Personal Access Tokens
+// ---------------------------------------------------------------------------
+
+pub fn list_tokens() -> Result<()> {
+    let creds = Credentials::load()?.ok_or_else(|| {
+        TaskbookError::Auth("not logged in — run `tb --login` first".to_string())
+    })?;
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    let resp = client.list_tokens()?;
+
+    if resp.tokens.is_empty() {
+        println!("{}", "No personal access tokens.".dimmed());
+        return Ok(());
+    }
+
+    println!("{}", "Personal Access Tokens:".bold());
+    println!(
+        "  {:<36}  {:<24}  {:<12}  {:<20}  {:<20}",
+        "ID", "Name", "Prefix", "Expires", "Last Used"
+    );
+    println!("  {}", "-".repeat(118));
+
+    for t in &resp.tokens {
+        let expires = t.expires_at.as_deref().unwrap_or("never");
+        let last_used = t.last_used_at.as_deref().unwrap_or("never");
+        println!(
+            "  {:<36}  {:<24}  {:<12}  {:<20}  {:<20}",
+            t.id, t.name, t.token_prefix, expires, last_used
+        );
+    }
+
+    Ok(())
+}
+
+pub fn create_token(name: &str) -> Result<()> {
+    let creds = Credentials::load()?.ok_or_else(|| {
+        TaskbookError::Auth("not logged in — run `tb --login` first".to_string())
+    })?;
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    let resp = client.create_token(name, None)?;
+
+    println!("{}", "✅ Token created successfully!".green().bold());
+    println!();
+    println!("  Name:   {}", resp.name.bold());
+    println!("  Prefix: {}", resp.token_prefix);
+    println!("  Token:  {}", resp.token.yellow().bold());
+    println!();
+    println!(
+        "{}",
+        "⚠  Copy this token now — it will not be shown again!"
+            .red()
+            .bold()
+    );
+
+    Ok(())
+}
+
+pub fn revoke_token(name_or_id: &str) -> Result<()> {
+    let creds = Credentials::load()?.ok_or_else(|| {
+        TaskbookError::Auth("not logged in — run `tb --login` first".to_string())
+    })?;
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+
+    // If it looks like a UUID, use directly; otherwise look up by name.
+    let token_id = if uuid_like(name_or_id) {
+        name_or_id.to_string()
+    } else {
+        let list = client.list_tokens()?;
+        let found = list.tokens.iter().find(|t| t.name == name_or_id);
+        match found {
+            Some(t) => t.id.clone(),
+            None => {
+                return Err(TaskbookError::Auth(format!(
+                    "no token found with name '{}'",
+                    name_or_id
+                )));
+            }
+        }
+    };
+
+    client.revoke_token(&token_id)?;
+
+    println!(
+        "{}",
+        format!("✅ Token '{}' revoked.", name_or_id).green().bold()
+    );
+
+    Ok(())
+}
+
+/// Quick check if a string looks like a UUID.
+fn uuid_like(s: &str) -> bool {
+    s.len() == 36 && s.chars().filter(|c| *c == '-').count() == 4
+}

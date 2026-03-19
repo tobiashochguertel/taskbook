@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { SettingsProvider } from "./lib/settings";
 import { BoardPage } from "./routes/board";
 import { LoginPage } from "./routes/login";
+import { ProfilePage } from "./routes/profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +22,10 @@ function Router() {
 
   if (path === "/login" || !isAuthenticated) {
     return <LoginPage />;
+  }
+
+  if (path === "/profile") {
+    return <ProfilePage />;
   }
 
   return <BoardPage />;

@@ -164,4 +164,42 @@ export const api = {
 
   logout: (token: string) =>
     request<void>("/api/v1/logout", { method: "DELETE" }, token),
+
+  // ── Personal Access Tokens ───────────────────────────────────────────
+
+  listTokens: (token: string) =>
+    request<TokenListResponse>("/api/v1/me/tokens", {}, token),
+
+  createToken: (token: string, name: string, expiresInDays?: number) =>
+    request<CreateTokenResponse>("/api/v1/me/tokens", {
+      method: "POST",
+      body: JSON.stringify({ name, expires_in_days: expiresInDays ?? null }),
+    }, token),
+
+  revokeToken: (token: string, tokenId: string) =>
+    request<void>(`/api/v1/me/tokens/${tokenId}`, { method: "DELETE" }, token),
 };
+
+// ── PAT types ──────────────────────────────────────────────────────────
+
+export interface CreateTokenResponse {
+  id: string;
+  name: string;
+  token: string;
+  token_prefix: string;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface TokenInfo {
+  id: string;
+  name: string;
+  token_prefix: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+export interface TokenListResponse {
+  tokens: TokenInfo[];
+}
