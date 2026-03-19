@@ -1,27 +1,11 @@
----
-title: Taskbook MCP Server
-description: Model Context Protocol server that exposes Taskbook task management to LLM clients — GitHub Copilot, Claude Desktop, Cursor, and more
-last_updated: 2025-07-18
----
-
 # 🎯 Taskbook MCP Server
 
-> **Model Context Protocol (MCP) server for [Taskbook](https://github.com/hochguertel/taskbook)** — manage tasks, notes, and boards from any MCP-compatible AI tool.
+[![npm](https://img.shields.io/npm/v/@tobiashochguertel/taskbook-mcp-server)](https://www.npmjs.com/package/@tobiashochguertel/taskbook-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-The `taskbook-mcp` server connects LLM clients (GitHub Copilot, Claude Desktop, Cursor, OpenCode, etc.) to a Taskbook sync server, providing 14 tools and 4 resources for full task management through natural language.
+> **Model Context Protocol (MCP) server for [Taskbook](https://github.com/tobiashochguertel/taskbook)** — manage tasks, notes, and boards from any MCP-compatible AI tool.
 
----
-
-## 📋 Table of Contents
-
-- [Quick Start](#-quick-start)
-- [AI Tool Configuration](#-ai-tool-configuration)
-- [Available MCP Tools](#-available-mcp-tools)
-- [Available MCP Resources](#-available-mcp-resources)
-- [Environment Variables](#-environment-variables)
-- [HTTP Transport & DevOps](#-http-transport--devops)
-- [Architecture](#-architecture)
-- [Development](#-development)
+The `taskbook-mcp` server connects LLM clients (GitHub Copilot, Claude Desktop, Cursor, VS Code, OpenCode, etc.) to a Taskbook sync server, providing 15 tools and 4 resources for full task management through natural language.
 
 ---
 
@@ -29,24 +13,27 @@ The `taskbook-mcp` server connects LLM clients (GitHub Copilot, Claude Desktop, 
 
 ### Prerequisites
 
-1. A running **Taskbook sync server** (e.g. `https://taskbook.hochguertel.work`)
+1. A running **Taskbook sync server**
 2. Authenticated via the `tb` CLI — run `tb --login` to create `~/.taskbook.json`
-3. **Bun** runtime (v1.3+) installed
 
-### Install & Run (stdio)
+### Install from npm
 
 ```bash
-# Clone and build
-cd packages/taskbook-mcp-server
-bun install
-bun run build
+# Install globally (requires Bun)
+bun add -g @tobiashochguertel/taskbook-mcp-server
 
-# Run in stdio mode (default) — used by all local AI tools
-bun run src/index.ts
+# Verify installation
+taskbook-mcp --help
+```
 
-# Or build a standalone binary
-bun run build:standalone
-./dist/taskbook-mcp --help
+### Run
+
+```bash
+# stdio mode (default) — used by all local AI tools
+taskbook-mcp
+
+# HTTP mode — for multi-client / server deployments
+taskbook-mcp --transport=http --port=3100
 ```
 
 The server reads credentials from `~/.taskbook.json` automatically. No extra configuration needed if you've already logged in with `tb --login`.
@@ -57,7 +44,8 @@ The server reads credentials from `~/.taskbook.json` automatically. No extra con
 
 All local AI tools use **stdio transport** — the tool spawns `taskbook-mcp` as a child process and communicates over stdin/stdout.
 
-### GitHub Copilot CLI
+<details>
+<summary><strong>GitHub Copilot CLI</strong></summary>
 
 Add to `~/.copilot/mcp-config.json`:
 
@@ -65,42 +53,33 @@ Add to `~/.copilot/mcp-config.json`:
 {
   "mcpServers": {
     "taskbook": {
-      "command": "bun",
-      "args": ["run", "/path/to/taskbook-mcp-server/src/index.ts"]
+      "command": "taskbook-mcp"
     }
   }
 }
 ```
 
-Or with the standalone binary:
+</details>
 
-```json
-{
-  "mcpServers": {
-    "taskbook": {
-      "command": "/path/to/taskbook-mcp"
-    }
-  }
-}
-```
+<details>
+<summary><strong>VS Code (GitHub Copilot)</strong></summary>
 
-### VS Code (GitHub Copilot)
-
-Add to `.vscode/mcp.json` in your workspace or `~/.vscode/mcp.json` globally:
+Add to `.vscode/mcp.json` or `~/.vscode/mcp.json`:
 
 ```json
 {
   "servers": {
     "taskbook": {
-      "command": "bun",
-      "args": ["run", "/path/to/taskbook-mcp-server/src/index.ts"],
-      "env": {}
+      "command": "taskbook-mcp"
     }
   }
 }
 ```
 
-### Claude Desktop
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
@@ -108,15 +87,16 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 {
   "mcpServers": {
     "taskbook": {
-      "command": "bun",
-      "args": ["run", "/path/to/taskbook-mcp-server/src/index.ts"],
-      "env": {}
+      "command": "taskbook-mcp"
     }
   }
 }
 ```
 
-### Cursor
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
 
 Add to `~/.cursor/mcp.json`:
 
@@ -124,14 +104,16 @@ Add to `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "taskbook": {
-      "command": "bun",
-      "args": ["run", "/path/to/taskbook-mcp-server/src/index.ts"]
+      "command": "taskbook-mcp"
     }
   }
 }
 ```
 
-### OpenCode
+</details>
+
+<details>
+<summary><strong>OpenCode</strong></summary>
 
 Add to `~/.config/opencode/config.json`:
 
@@ -139,23 +121,24 @@ Add to `~/.config/opencode/config.json`:
 {
   "mcp": {
     "taskbook": {
-      "command": "bun",
-      "args": ["run", "/path/to/taskbook-mcp-server/src/index.ts"]
+      "command": "taskbook-mcp"
     }
   }
 }
 ```
 
-> 💡 **Tip:** Replace `/path/to/taskbook-mcp-server` with the actual absolute path, or use the standalone binary path after running `bun run build:standalone`.
+</details>
 
-### Using Environment Variables (all tools)
+> 💡 **Tip:** For HTTP transport configuration, environment variables, and advanced DevOps setups (Docker, Traefik, Authelia), see the [detailed configuration guides](../../docs/ai-agent-tools/).
 
-If you don't have `~/.taskbook.json`, pass credentials via environment variables in any config above:
+### Environment Variables
+
+If you don't have `~/.taskbook.json`, pass credentials via environment variables:
 
 ```json
 {
   "env": {
-    "TB_SERVER_URL": "https://taskbook.hochguertel.work",
+    "TB_SERVER_URL": "https://your-taskbook-server.example.com",
     "TB_TOKEN": "your-session-token",
     "TB_ENCRYPTION_KEY": "your-encryption-key"
   }
@@ -216,223 +199,51 @@ Environment variables **override** values from `~/.taskbook.json`. If all three 
 
 ---
 
-## 🌐 HTTP Transport & DevOps
+## 🌐 HTTP Transport
 
-The HTTP transport enables **multi-client** deployments with session management using MCP Streamable HTTP (not SSE — that protocol is deprecated).
-
-### Starting HTTP Mode
+The HTTP transport enables **multi-client** deployments with per-session `TaskbookClient` instances using MCP Streamable HTTP.
 
 ```bash
-# Via environment variable
-TB_MCP_TRANSPORT=http bun run src/index.ts
-
-# Via CLI flag
+# Start in HTTP mode
 taskbook-mcp --transport=http --port=3100 --host=0.0.0.0
 ```
 
-**Endpoints:**
-
-| Endpoint  | Method   | Description                                                 |
-| --------- | -------- | ----------------------------------------------------------- |
-| `/mcp`    | `POST`   | MCP JSON-RPC requests (initialize + tool calls)             |
-| `/mcp`    | `GET`    | Server-to-client streaming (SSE fallback for notifications) |
-| `/mcp`    | `DELETE` | Close a session                                             |
-| `/health` | `GET`    | Health check — returns `{ "status": "ok" }`                 |
-
-Sessions are tracked via the `mcp-session-id` header. Each session gets its own `TaskbookClient` instance.
-
-### Bearer Token Authentication
-
-Set `TB_MCP_ACCESS_TOKEN` to require a Bearer token on all HTTP requests:
-
-```bash
-TB_MCP_TRANSPORT=http TB_MCP_ACCESS_TOKEN=my-secret-token taskbook-mcp
-```
-
-Clients must send `Authorization: Bearer my-secret-token` on every request.
+| Endpoint  | Method   | Description                                     |
+| --------- | -------- | ----------------------------------------------- |
+| `/mcp`    | `POST`   | MCP JSON-RPC requests (initialize + tool calls) |
+| `/mcp`    | `GET`    | Server-to-client streaming (notifications)      |
+| `/mcp`    | `DELETE` | Close a session                                 |
+| `/health` | `GET`    | Health check — returns `{ "status": "ok" }`     |
 
 ### Docker
 
 ```bash
-# Build the image
-docker build -f packages/taskbook-mcp-server/Dockerfile -t taskbook-mcp .
-
-# Run
 docker run -p 3100:3100 \
-  -e TB_SERVER_URL=https://taskbook.hochguertel.work \
+  -e TB_SERVER_URL=https://your-taskbook-server.example.com \
   -e TB_TOKEN=your-token \
   -e TB_ENCRYPTION_KEY=your-key \
-  taskbook-mcp
+  ghcr.io/tobiashochguertel/taskbook-mcp-server:latest
 ```
 
-The Dockerfile uses a **multi-stage build**: Bun compiles a standalone binary in stage 1, then copies it to a minimal `distroless` runtime image.
-
-### Docker Compose
-
-The MCP server is available as a Docker Compose profile:
-
-```bash
-# Start with MCP server
-docker compose --profile mcp up -d
-
-# Set credentials via .env or shell
-TB_TOKEN=your-token TB_ENCRYPTION_KEY=your-key docker compose --profile mcp up -d
-```
-
-The compose service (`mcp-server`) connects to the Taskbook server internally at `http://server:8080`.
-
-### Reverse Proxy (Traefik)
-
-When running behind Traefik or another reverse proxy with Authelia/OIDC:
-
-```yaml
-# Example Traefik labels
-labels:
-  - "traefik.enable=true"
-  - "traefik.http.routers.taskbook-mcp.rule=Host(`mcp.example.com`)"
-  - "traefik.http.routers.taskbook-mcp.entrypoints=websecure"
-  - "traefik.http.routers.taskbook-mcp.tls.certresolver=letsencrypt"
-  - "traefik.http.services.taskbook-mcp.loadbalancer.server.port=3100"
-  # Authelia middleware for OAuth2/OIDC
-  - "traefik.http.routers.taskbook-mcp.middlewares=authelia@docker"
-```
-
-For OIDC flows, the client obtains a token from the identity provider and passes it as a Bearer token. Set `TB_MCP_ACCESS_TOKEN` to validate tokens at the MCP layer, or rely on the reverse proxy for authentication.
-
----
-
-## 🏗 Architecture
-
-```mermaid
-graph TB
-    subgraph "AI Clients"
-        GH[GitHub Copilot CLI]
-        VS[VS Code / Copilot]
-        CL[Claude Desktop]
-        CU[Cursor / OpenCode]
-    end
-
-    subgraph "taskbook-mcp"
-        IDX[index.ts<br/>Entry Point]
-        CFG[config.ts<br/>Config Loader]
-        SRV[server.ts<br/>MCP Server Factory]
-
-        subgraph "Transports"
-            STDIO[stdio.ts<br/>Single Client]
-            HTTP[http.ts<br/>Multi Client + Sessions]
-        end
-
-        subgraph "Tools"
-            TT[tasks.ts<br/>5 tools]
-            TN[notes.ts<br/>2 tools]
-            TB_TOOLS[boards.ts<br/>2 tools]
-            TG[general.ts<br/>6 tools]
-        end
-
-        subgraph "Resources"
-            RES[index.ts<br/>4 resources]
-        end
-
-        subgraph "Client"
-            API[api.ts<br/>TaskbookClient]
-            CRYPTO[crypto.ts<br/>AES-256-GCM]
-        end
-    end
-
-    subgraph "Backend"
-        TBSRV[Taskbook Sync Server]
-        DB[(Database)]
-    end
-
-    GH & VS & CL & CU -->|stdio / HTTP| IDX
-    IDX --> CFG
-    IDX -->|stdio| STDIO
-    IDX -->|http| HTTP
-    STDIO & HTTP --> SRV
-    SRV --> TT & TN & TB_TOOLS & TG & RES
-    TT & TN & TB_TOOLS & TG & RES --> API
-    API --> CRYPTO
-    API -->|REST + encrypted payloads| TBSRV
-    TBSRV --> DB
-```
-
-### Key Design Decisions
-
-- **Client-side encryption**: All data is encrypted with AES-256-GCM before leaving the MCP server. The Taskbook sync server never sees plaintext.
-- **Per-session clients**: HTTP transport creates a separate `TaskbookClient` per session, enabling multi-user deployments.
-- **Zod schemas**: All tool parameters are validated with Zod at the MCP protocol level.
-- **Bun runtime**: Uses Bun for fast startup, native TypeScript execution, and `bun build --compile` for standalone binaries.
+> For advanced setups (Docker Compose, Traefik, Authelia/OIDC), see the [DevOps guide](../../docs/ai-agent-tools/devops-http-setup.md).
 
 ---
 
 ## 👩‍💻 Development
 
-### Building from Source
-
 ```bash
 cd packages/taskbook-mcp-server
-
-# Install dependencies
-bun install
-
-# Development mode (watch + auto-reload)
-bun run dev
-
-# Type checking
-bun run typecheck
-
-# Linting (Biome)
-bun run lint
-
-# Build (bundled JS)
-bun run build
-
-# Build standalone binary
-bun run build:standalone
-
-# Run tests
-bun test
-
-# Clean build artifacts
-bun run clean
+bun install          # Install dependencies
+bun run dev          # Development mode (watch)
+bun run typecheck    # Type checking
+bun run lint         # Linting (Biome)
+bun run build        # Build bundled JS
+bun run build:standalone  # Build standalone binary
+bun test             # Run tests
 ```
 
-### Project Structure
+---
 
-```
-src/
-├── index.ts              # Entry point, CLI arg parsing
-├── server.ts             # MCP server factory, tool/resource registration
-├── config.ts             # Config loading (~/.taskbook.json + env vars)
-├── client/
-│   ├── api.ts            # TaskbookClient — REST API + encryption
-│   └── crypto.ts         # AES-256-GCM encrypt/decrypt helpers
-├── tools/
-│   ├── tasks.ts          # list, create, complete, begin, set_priority
-│   ├── notes.ts          # list, create
-│   ├── boards.ts         # list, move_item
-│   └── general.ts        # search, edit, delete, archive, star, get_status
-├── transport/
-│   ├── stdio.ts          # Stdio transport (single client)
-│   └── http.ts           # HTTP Streamable transport (multi client)
-└── resources/
-    └── index.ts           # MCP resources (status, boards, items, archive)
-```
+## 📄 License
 
-### Tech Stack
-
-| Component  | Technology                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| Runtime    | [Bun](https://bun.sh) 1.3+                                                                  |
-| MCP SDK    | [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) ^1.14.0 |
-| Validation | [Zod](https://zod.dev) ^3.25                                                                |
-| Language   | TypeScript (ESNext, strict mode)                                                            |
-| Linter     | [Biome](https://biomejs.dev)                                                                |
-| Build      | `bun build` (bundled) / `bun build --compile` (standalone)                                  |
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/my-feature`
-3. Make changes and ensure `bun run typecheck && bun run lint && bun test` pass
-4. Submit a pull request
+[MIT](LICENSE) — see [Taskbook](https://github.com/tobiashochguertel/taskbook) for full project details.
