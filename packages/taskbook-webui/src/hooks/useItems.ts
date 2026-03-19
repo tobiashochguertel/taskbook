@@ -67,16 +67,28 @@ export function useItems() {
     if (mutatingRef.current) return;
     if (rawQuery.data?.items) {
       setDecrypting(true);
-      decryptItems(rawQuery.data.items, encryptionKey).then((decrypted) => {
-        // Double-check mutation didn't start while we were decrypting
-        if (!mutatingRef.current) {
-          setItems(decrypted);
-          setSyncState("success");
-          setLastSyncTime(new Date());
-          setSyncError(null);
-        }
-        setDecrypting(false);
-      });
+      decryptItems(rawQuery.data.items, encryptionKey)
+        .then((decrypted) => {
+          // Double-check mutation didn't start while we were decrypting
+          if (!mutatingRef.current) {
+            setItems(decrypted);
+            setSyncState("success");
+            setLastSyncTime(new Date());
+            setSyncError(null);
+          }
+          setDecrypting(false);
+        })
+        .catch((err) => {
+          // Graceful recovery: log and trigger a clean refetch
+          console.error("Decrypt cycle failed, scheduling refetch:", err);
+          setDecrypting(false);
+          if (!mutatingRef.current) {
+            setSyncState("error");
+            setSyncError("Decryption failed — retrying…");
+            // Schedule a clean refetch after a short delay
+            setTimeout(() => rawQuery.refetch(), 1000);
+          }
+        });
     }
   }, [rawQuery.data, encryptionKey]);
 
@@ -153,12 +165,20 @@ export function useArchive() {
     if (mutatingRef.current) return;
     if (rawQuery.data?.items) {
       setDecrypting(true);
-      decryptItems(rawQuery.data.items, encryptionKey).then((decrypted) => {
-        if (!mutatingRef.current) {
-          setArchiveItems(decrypted);
-        }
-        setDecrypting(false);
-      });
+      decryptItems(rawQuery.data.items, encryptionKey)
+        .then((decrypted) => {
+          if (!mutatingRef.current) {
+            setArchiveItems(decrypted);
+          }
+          setDecrypting(false);
+        })
+        .catch((err) => {
+          console.error("Archive decrypt failed, scheduling refetch:", err);
+          setDecrypting(false);
+          if (!mutatingRef.current) {
+            setTimeout(() => rawQuery.refetch(), 1000);
+          }
+        });
     }
   }, [rawQuery.data, encryptionKey]);
 
@@ -208,6 +228,7 @@ export function useEventSync() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
   const eventSourceRef = useRef<EventSource | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -216,15 +237,30 @@ export function useEventSync() {
     eventSourceRef.current = es;
 
     es.onmessage = () => {
-      queryClient.invalidateQueries({ queryKey: ["items-raw"] });
-      queryClient.invalidateQueries({ queryKey: ["archive-raw"] });
+      // Debounce rapid SSE events — coalesce within 500ms
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["items-raw"] });
+        queryClient.invalidateQueries({ queryKey: ["archive-raw"] });
+        debounceRef.current = null;
+      }, 500);
     };
 
     es.onerror = () => {
-      // EventSource auto-reconnects
+      // EventSource auto-reconnects; on reconnect trigger full sync
+      if (es.readyState === EventSource.CONNECTING) {
+        // Will re-open — queue a full sync for when it reconnects
+        const onReopen = () => {
+          queryClient.invalidateQueries({ queryKey: ["items-raw"] });
+          queryClient.invalidateQueries({ queryKey: ["archive-raw"] });
+          es.removeEventListener("open", onReopen);
+        };
+        es.addEventListener("open", onReopen);
+      }
     };
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       es.close();
       eventSourceRef.current = null;
     };
