@@ -19,7 +19,69 @@ function getAvatarColor(name: string): string {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
   const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 35%, 50%)`;
+  return `hsl(${hue}, 40%, 55%)`;
+}
+
+function MenuRow({
+  icon,
+  label,
+  href,
+  external,
+  onClick,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  href?: string;
+  external?: boolean;
+  onClick?: () => void;
+  danger?: boolean;
+}) {
+  const style = {
+    color: danger ? "var(--color-error)" : "var(--color-text)",
+    background: "none" as const,
+  };
+
+  const cls =
+    "w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer border-none no-underline transition-colors";
+
+  const hover = (e: React.MouseEvent<HTMLElement>) =>
+    (e.currentTarget.style.backgroundColor = "var(--color-surface-hover)");
+  const unhover = (e: React.MouseEvent<HTMLElement>) =>
+    (e.currentTarget.style.backgroundColor = "transparent");
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noopener noreferrer" : undefined}
+        className={cls}
+        style={style}
+        onClick={onClick}
+        onMouseEnter={hover}
+        onMouseLeave={unhover}
+      >
+        <span style={{ color: "var(--color-text-muted)" }}>{icon}</span>
+        {label}
+      </a>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cls}
+      style={style}
+      onMouseEnter={hover}
+      onMouseLeave={unhover}
+    >
+      <span style={{ color: danger ? undefined : "var(--color-text-muted)" }}>
+        {icon}
+      </span>
+      {label}
+    </button>
+  );
 }
 
 export function ProfileMenu({
@@ -31,7 +93,7 @@ export function ProfileMenu({
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const initial = getInitials(username, email);
-  const avatarBg = getAvatarColor(username || email || "user");
+  const avatarColor = getAvatarColor(username || email || "user");
 
   useEffect(() => {
     if (!showMenu) return;
@@ -44,41 +106,35 @@ export function ProfileMenu({
     return () => document.removeEventListener("mousedown", handler);
   }, [showMenu]);
 
-  const menuItems = [
-    {
-      icon: <User size={14} />,
-      label: "Profile & Tokens",
-      href: "/profile",
-    },
-    {
-      icon: <Settings size={14} />,
-      label: "Settings",
-      onClick: onOpenSettings,
-    },
-    {
-      icon: <Shield size={14} />,
-      label: "API Docs",
-      href: "/api/docs",
-      external: true,
-    },
-  ];
+  // ESC to close
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowMenu(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [showMenu]);
+
+  const close = () => setShowMenu(false);
 
   return (
     <div className="relative" ref={menuRef}>
       <button
         type="button"
         onClick={() => setShowMenu((prev) => !prev)}
-        className="flex items-center justify-center cursor-pointer rounded-full transition-opacity"
+        className="flex items-center justify-center cursor-pointer rounded-full transition-all"
         style={{
-          width: 28,
-          height: 28,
-          backgroundColor: "transparent",
-          border: `1.5px solid ${avatarBg}`,
-          color: avatarBg,
+          width: 26,
+          height: 26,
+          backgroundColor: showMenu ? avatarColor : "transparent",
+          border: `1.5px solid ${avatarColor}`,
+          color: showMenu ? "#fff" : avatarColor,
           fontSize: 11,
-          fontWeight: 500,
+          fontWeight: 600,
           fontFamily: "var(--font-mono)",
-          opacity: showMenu ? 1 : 0.7,
+          opacity: showMenu ? 1 : 0.65,
+          letterSpacing: 0,
         }}
         title={username || email || "Profile"}
         aria-label="Profile menu"
@@ -119,57 +175,27 @@ export function ProfileMenu({
 
           {/* Menu items */}
           <div className="px-1 py-1">
-            {menuItems.map((item) =>
-              item.href ? (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target={item.external ? "_blank" : undefined}
-                  rel={item.external ? "noopener noreferrer" : undefined}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer no-underline transition-colors"
-                  style={{ color: "var(--color-text)" }}
-                  onClick={() => setShowMenu(false)}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      "var(--color-surface-hover)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
-                >
-                  <span style={{ color: "var(--color-text-muted)" }}>
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </a>
-              ) : (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => {
-                    item.onClick?.();
-                    setShowMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer border-none transition-colors"
-                  style={{
-                    background: "none",
-                    color: "var(--color-text)",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      "var(--color-surface-hover)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
-                >
-                  <span style={{ color: "var(--color-text-muted)" }}>
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </button>
-              ),
-            )}
+            <MenuRow
+              icon={<User size={14} />}
+              label="Profile & Tokens"
+              href="/profile"
+              onClick={close}
+            />
+            <MenuRow
+              icon={<Settings size={14} />}
+              label="Settings"
+              onClick={() => {
+                onOpenSettings();
+                close();
+              }}
+            />
+            <MenuRow
+              icon={<Shield size={14} />}
+              label="API Docs"
+              href="/api/docs"
+              external
+              onClick={close}
+            />
           </div>
 
           {/* Version info */}
@@ -179,7 +205,7 @@ export function ProfileMenu({
           >
             <span
               className="text-xs"
-              style={{ color: "var(--color-text-muted)", opacity: 0.6 }}
+              style={{ color: "var(--color-text-muted)", opacity: 0.5 }}
             >
               Taskbook{" "}
               {typeof __APP_VERSION__ !== "undefined"
@@ -193,28 +219,15 @@ export function ProfileMenu({
             className="border-t px-1 py-1"
             style={{ borderColor: "var(--color-border)" }}
           >
-            <button
-              type="button"
+            <MenuRow
+              icon={<LogOut size={14} />}
+              label="Sign out"
+              danger
               onClick={() => {
                 onLogout();
-                setShowMenu(false);
+                close();
               }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs cursor-pointer border-none transition-colors"
-              style={{
-                background: "none",
-                color: "var(--color-error)",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor =
-                  "var(--color-surface-hover)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "transparent")
-              }
-            >
-              <LogOut size={14} />
-              Sign out
-            </button>
+            />
           </div>
         </div>
       )}

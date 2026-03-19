@@ -2,13 +2,10 @@ import {
   Archive,
   Check,
   Folder,
-  LogOut,
   Menu,
   Pencil,
   Plus,
-  Settings,
   Trash2,
-  User,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -18,15 +15,11 @@ interface DrawerProps {
   boards: string[];
   currentBoard: string;
   onSelectBoard: (board: string) => void;
-  onOpenSettings: () => void;
   onOpenArchive: () => void;
-  onLogout: () => void;
   onAddBoard: (name: string) => void;
   onDeleteBoard: (name: string) => void;
   onRenameBoard: (oldName: string, newName: string) => void;
   itemBoards: string[];
-  username?: string;
-  email?: string;
 }
 
 export function BurgerButton({ onClick }: { onClick: () => void }) {
@@ -52,15 +45,11 @@ export function Drawer({
   boards,
   currentBoard,
   onSelectBoard,
-  onOpenSettings,
   onOpenArchive,
-  onLogout,
   onAddBoard,
   onDeleteBoard,
   onRenameBoard,
   itemBoards,
-  username,
-  email,
 }: DrawerProps) {
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
@@ -138,38 +127,6 @@ export function Drawer({
                 <X size={20} />
               </button>
             </div>
-
-            {/* User info */}
-            {(username || email) && (
-              <div
-                className="flex items-center gap-3 px-4 py-3 border-b"
-                style={{ borderColor: "var(--color-border)" }}
-              >
-                <User
-                  size={18}
-                  className="shrink-0"
-                  style={{ color: "var(--color-text-muted)" }}
-                />
-                <div className="min-w-0">
-                  {username && (
-                    <span
-                      className="text-sm truncate block"
-                      style={{ color: "var(--color-text)" }}
-                    >
-                      {username}
-                    </span>
-                  )}
-                  {email && (
-                    <span
-                      className="text-xs truncate block"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      {email}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Boards */}
             <div className="flex-1 overflow-y-auto py-2">
@@ -400,40 +357,6 @@ export function Drawer({
               >
                 <Archive size={16} />
                 <span className="text-sm">Archive</span>
-              </button>
-              <button
-                type="button"
-                aria-label="Settings"
-                onClick={() => {
-                  maybeClose();
-                  onOpenSettings();
-                }}
-                className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
-                style={{
-                  color: "var(--color-text)",
-                  background: "none",
-                  minHeight: 44,
-                }}
-              >
-                <Settings size={16} />
-                <span className="text-sm">Settings</span>
-              </button>
-              <button
-                type="button"
-                aria-label="Logout"
-                onClick={() => {
-                  maybeClose();
-                  onLogout();
-                }}
-                className="flex items-center gap-3 w-full text-left px-4 py-3 cursor-pointer border-none"
-                style={{
-                  color: "var(--color-error)",
-                  background: "none",
-                  minHeight: 44,
-                }}
-              >
-                <LogOut size={16} />
-                <span className="text-sm">Logout</span>
               </button>
             </div>
           </nav>

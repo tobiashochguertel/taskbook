@@ -504,15 +504,11 @@ export function BoardPage() {
               boards={boards}
               currentBoard={currentBoard}
               onSelectBoard={setSelectedBoard}
-              onOpenSettings={() => setShowSettings(true)}
               onOpenArchive={() => setShowArchiveView(true)}
-              onLogout={logout}
               onAddBoard={addCustomBoard}
               onDeleteBoard={deleteBoard}
               onRenameBoard={renameBoard}
               itemBoards={itemBoards}
-              username={user.data?.username}
-              email={user.data?.email}
             />
           )}
 
