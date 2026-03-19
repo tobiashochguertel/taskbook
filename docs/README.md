@@ -38,31 +38,31 @@ graph TB
 
 ### Getting Started
 
-| Document | Description |
-|----------|-------------|
-| [Installation](01-getting-started/01-installation.md) | Pre-built binaries, Nix, Cargo, Docker |
-| [Quick Start](01-getting-started/02-quick-start.md) | Get up and running in minutes |
+| Document                                                | Description                                |
+| ------------------------------------------------------- | ------------------------------------------ |
+| [Installation](01-getting-started/01-installation.md)   | Pre-built binaries, Nix, Cargo, Docker     |
+| [Quick Start](01-getting-started/02-quick-start.md)     | Get up and running in minutes              |
 | [Configuration](01-getting-started/03-configuration.md) | Themes, display settings, data directories |
 
 ### Usage
 
-| Document | Description |
-|----------|-------------|
-| [CLI Reference](02-usage/01-cli-reference.md) | Complete command reference for `tb` |
-| [Sync & Encryption](02-usage/02-sync.md) | End-to-end encrypted sync between devices |
+| Document                                      | Description                               |
+| --------------------------------------------- | ----------------------------------------- |
+| [CLI Reference](02-usage/01-cli-reference.md) | Complete command reference for `tb`       |
+| [Sync & Encryption](02-usage/02-sync.md)      | End-to-end encrypted sync between devices |
 
 ### Server & Deployment
 
-| Document | Description |
-|----------|-------------|
-| [Server Setup](03-server/01-server-setup.md) | Running `tb-server` with Docker or bare metal |
-| [Kubernetes](03-server/02-kubernetes.md) | K8s manifests, Helm, scaling, and security |
+| Document                                       | Description                                     |
+| ---------------------------------------------- | ----------------------------------------------- |
+| [Server Setup](03-server/01-server-setup.md)   | Running `tb-server` with Docker or bare metal   |
+| [Kubernetes](03-server/02-kubernetes.md)       | K8s manifests, Helm, scaling, and security      |
 | [Observability](03-server/03-observability.md) | Prometheus metrics, Grafana dashboards, logging |
 
 ### Integrations
 
-| Document | Description |
-|----------|-------------|
+| Document                                   | Description                                    |
+| ------------------------------------------ | ---------------------------------------------- |
 | [MCP Server](04-mcp-server/01-overview.md) | AI tool integration via Model Context Protocol |
 
 ## Quick Links

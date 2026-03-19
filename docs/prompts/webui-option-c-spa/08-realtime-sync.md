@@ -7,11 +7,14 @@ The SPA subscribes to this stream and uses it to **invalidate TanStack Query cac
 triggering automatic background refetches. No manual polling is needed.
 
 SSE event payload:
+
 ```
 event: data_changed
 data: items        ← active items changed
 ```
+
 or
+
 ```
 event: data_changed
 data: archive      ← archived items changed
@@ -24,9 +27,9 @@ data: archive      ← archived items changed
 **File:** `src/hooks/useSync.ts`
 
 ```typescript
-import { useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/stores/auth.store';
+import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "@/stores/auth.store";
 
 /**
  * Opens a persistent SSE connection to /api/v1/events.
@@ -58,17 +61,22 @@ The browser's native `EventSource` API does not support custom headers. Two opti
 uses `fetch()` under the hood and supports headers:
 
 ```typescript
-import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 
 await fetchEventSource(`${import.meta.env.VITE_API_BASE_URL}/api/v1/events`, {
   headers: { Authorization: `Bearer ${token}` },
-  onmessage(ev) { /* handle ev.event, ev.data */ },
-  onerror(err) { /* trigger reconnect */ },
+  onmessage(ev) {
+    /* handle ev.event, ev.data */
+  },
+  onerror(err) {
+    /* trigger reconnect */
+  },
   signal: abortController.signal,
 });
 ```
 
 Add to `package.json` dependencies:
+
 ```json
 "@microsoft/fetch-event-source": "^2.0.1"
 ```
@@ -83,13 +91,13 @@ appears in server logs) and is **not recommended**.
 
 ```typescript
 // Active items
-export const ITEMS_QUERY_KEY = ['items'] as const;
+export const ITEMS_QUERY_KEY = ["items"] as const;
 
 // Archive
-export const ARCHIVE_QUERY_KEY = ['archive'] as const;
+export const ARCHIVE_QUERY_KEY = ["archive"] as const;
 
 // Current user
-export const ME_QUERY_KEY = ['me'] as const;
+export const ME_QUERY_KEY = ["me"] as const;
 ```
 
 ---
@@ -99,11 +107,11 @@ export const ME_QUERY_KEY = ['me'] as const;
 **File:** `src/hooks/useItems.ts`
 
 ```typescript
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getItems, putItems } from '@/lib/api';
-import { useEncryption } from '@/hooks/useEncryption';
-import { ITEMS_QUERY_KEY } from '@/hooks/useSync';
-import type { ItemsMap } from '@/lib/api/types';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getItems, putItems } from "@/lib/api";
+import { useEncryption } from "@/hooks/useEncryption";
+import { ITEMS_QUERY_KEY } from "@/hooks/useSync";
+import type { ItemsMap } from "@/lib/api/types";
 
 export function useItems() {
   const { decryptItems, encryptItems, isReady } = useEncryption();
@@ -113,8 +121,8 @@ export function useItems() {
     queryKey: ITEMS_QUERY_KEY,
     enabled: isReady,
     queryFn: async () => {
-      const response = await getItems();           // generated API call
-      return decryptItems(response.data.items);    // decrypt in browser
+      const response = await getItems(); // generated API call
+      return decryptItems(response.data.items); // decrypt in browser
     },
     staleTime: 30_000,
   });
@@ -156,6 +164,7 @@ const BACKOFF_FACTOR = 2;
 ```
 
 The `StatusBar` component (see `09-ui-components.md`) displays the connection state:
+
 - 🟢 Synced — SSE connected, last sync timestamp
 - 🟡 Reconnecting… — exponential backoff in progress
 - 🔴 Offline — no connection, working from cache
@@ -166,15 +175,15 @@ The `StatusBar` component (see `09-ui-components.md`) displays the connection st
 
 - [ ] `useSync` opens an SSE connection immediately after a valid token is available
 - [ ] A `data_changed: items` event causes `queryClient.invalidateQueries(['items'])`
-  within 100ms of the event arriving
+      within 100ms of the event arriving
 - [ ] A `data_changed: archive` event causes `queryClient.invalidateQueries(['archive'])`
 - [ ] If the SSE connection drops, `useSync` reconnects automatically with exponential
-  backoff (tested by MSW closing the stream)
+      backoff (tested by MSW closing the stream)
 - [ ] `useSync` closes the SSE connection and stops reconnecting when the token is cleared
-  (logout)
+      (logout)
 - [ ] The `StatusBar` reflects connection state: connected / reconnecting / offline
 - [ ] Unit test (`tests/unit/hooks/useSync.test.ts`): MSW streams two events; assert
-  `invalidateQueries` is called twice with the correct keys
+      `invalidateQueries` is called twice with the correct keys
 - [ ] E2E test (`tests/e2e/sync.spec.ts`): two browser tabs open the board; a task created
-  in tab A appears in tab B within 2 seconds (requires a live server or MSW SSE simulation)
+      in tab A appears in tab B within 2 seconds (requires a live server or MSW SSE simulation)
 - [ ] `@microsoft/fetch-event-source` is listed as a runtime dependency

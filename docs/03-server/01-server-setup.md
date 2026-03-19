@@ -32,6 +32,7 @@ docker compose logs -f server
 ```
 
 This starts:
+
 - PostgreSQL database on port 5432
 - Taskbook server on port 8080
 
@@ -53,18 +54,18 @@ CREATE DATABASE taskbook;
 
 The server is configured entirely via environment variables:
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `TB_DB_HOST` | Yes | - | Database hostname |
-| `TB_DB_PORT` | No | `5432` | Database port |
-| `TB_DB_NAME` | Yes | - | Database name |
-| `TB_DB_USER` | Yes | - | Database username |
-| `TB_DB_PASSWORD` | Yes | - | Database password |
-| `TB_HOST` | No | `0.0.0.0` | Server bind address |
-| `TB_PORT` | No | `8080` | Server port |
-| `TB_SESSION_EXPIRY_DAYS` | No | `30` | Session token lifetime in days |
-| `TB_CORS_ORIGINS` | No | (none) | Allowed CORS origins, comma-separated |
-| `RUST_LOG` | No | `info` | Log level (trace, debug, info, warn, error) |
+| Variable                 | Required | Default   | Description                                 |
+| ------------------------ | -------- | --------- | ------------------------------------------- |
+| `TB_DB_HOST`             | Yes      | -         | Database hostname                           |
+| `TB_DB_PORT`             | No       | `5432`    | Database port                               |
+| `TB_DB_NAME`             | Yes      | -         | Database name                               |
+| `TB_DB_USER`             | Yes      | -         | Database username                           |
+| `TB_DB_PASSWORD`         | Yes      | -         | Database password                           |
+| `TB_HOST`                | No       | `0.0.0.0` | Server bind address                         |
+| `TB_PORT`                | No       | `8080`    | Server port                                 |
+| `TB_SESSION_EXPIRY_DAYS` | No       | `30`      | Session token lifetime in days              |
+| `TB_CORS_ORIGINS`        | No       | (none)    | Allowed CORS origins, comma-separated       |
+| `RUST_LOG`               | No       | `info`    | Log level (trace, debug, info, warn, error) |
 
 ### 3. Run the Server
 
@@ -148,12 +149,12 @@ The server exposes the following REST API:
 
 ### Authentication
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/register` | Create new account |
-| `POST` | `/api/v1/login` | Login and get session token |
-| `DELETE` | `/api/v1/logout` | Invalidate session |
-| `GET` | `/api/v1/me` | Get current user info |
+| Method   | Endpoint           | Description                 |
+| -------- | ------------------ | --------------------------- |
+| `POST`   | `/api/v1/register` | Create new account          |
+| `POST`   | `/api/v1/login`    | Login and get session token |
+| `DELETE` | `/api/v1/logout`   | Invalidate session          |
+| `GET`    | `/api/v1/me`       | Get current user info       |
 
 Registration and login endpoints are rate-limited to 10 requests per IP per 60 seconds.
 
@@ -161,28 +162,28 @@ Registration and login endpoints are rate-limited to 10 requests per IP per 60 s
 
 All item endpoints require `Authorization: Bearer <token>` header.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/items` | Get all active items |
-| `PUT` | `/api/v1/items` | Replace all active items (max 10,000 items) |
-| `GET` | `/api/v1/items/archive` | Get archived items |
-| `PUT` | `/api/v1/items/archive` | Replace archived items (max 10,000 items) |
+| Method | Endpoint                | Description                                 |
+| ------ | ----------------------- | ------------------------------------------- |
+| `GET`  | `/api/v1/items`         | Get all active items                        |
+| `PUT`  | `/api/v1/items`         | Replace all active items (max 10,000 items) |
+| `GET`  | `/api/v1/items/archive` | Get archived items                          |
+| `PUT`  | `/api/v1/items/archive` | Replace archived items (max 10,000 items)   |
 
 Request body size is limited to 10 MB.
 
 ### Real-time Sync
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/events` | SSE stream for real-time sync notifications |
+| Method | Endpoint         | Description                                 |
+| ------ | ---------------- | ------------------------------------------- |
+| `GET`  | `/api/v1/events` | SSE stream for real-time sync notifications |
 
 The events endpoint provides Server-Sent Events (SSE) that notify connected clients when data changes. Events include a `data_changed` event type with either `"items"` or `"archive"` as the data payload. The server sends keep-alive pings every 15 seconds.
 
 ### Health
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/health` | Health check |
+| Method | Endpoint         | Description  |
+| ------ | ---------------- | ------------ |
+| `GET`  | `/api/v1/health` | Health check |
 
 ## Database Schema
 

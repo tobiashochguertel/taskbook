@@ -24,28 +24,28 @@ Returns all metrics in Prometheus exposition format (`text/plain; version=0.0.4`
 
 Recorded by the metrics middleware for every request:
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
-| `http_requests_total` | Counter | `method`, `route`, `status` | Total HTTP requests |
+| Metric                          | Type      | Labels                      | Description                |
+| ------------------------------- | --------- | --------------------------- | -------------------------- |
+| `http_requests_total`           | Counter   | `method`, `route`, `status` | Total HTTP requests        |
 | `http_request_duration_seconds` | Histogram | `method`, `route`, `status` | Request latency in seconds |
-| `http_active_requests` | Gauge | `method`, `route` | In-flight HTTP requests |
+| `http_active_requests`          | Gauge     | `method`, `route`           | In-flight HTTP requests    |
 
 Histogram buckets: 1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s.
 
 ### SSE Metrics
 
-| Metric | Type | Labels | Description |
-|--------|------|--------|-------------|
+| Metric                   | Type  | Labels     | Description                                            |
+| ------------------------ | ----- | ---------- | ------------------------------------------------------ |
 | `sse_active_connections` | Gauge | `endpoint` | Active SSE connections (auto-decrements on disconnect) |
 
 ### Database Pool Metrics
 
 Updated every 15 seconds:
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `db_pool_connections` | Gauge | Total connections in the pool |
-| `db_pool_idle_connections` | Gauge | Idle connections in the pool |
+| Metric                     | Type  | Description                   |
+| -------------------------- | ----- | ----------------------------- |
+| `db_pool_connections`      | Gauge | Total connections in the pool |
+| `db_pool_idle_connections` | Gauge | Idle connections in the pool  |
 
 ## Prometheus Scraping
 
@@ -59,7 +59,7 @@ kind: ServiceMonitor
 metadata:
   name: tb-server
   labels:
-    release: prometheus-operator  # Must match your Prometheus instance's serviceMonitorSelector
+    release: prometheus-operator # Must match your Prometheus instance's serviceMonitorSelector
 spec:
   selector:
     matchLabels:

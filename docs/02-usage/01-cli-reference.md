@@ -251,13 +251,13 @@ tb -l <attributes>
 
 Filters items by one or more attributes:
 
-| Attribute | Description |
-|-----------|-------------|
+| Attribute | Description      |
+| --------- | ---------------- |
 | `pending` | Incomplete tasks |
-| `done` | Completed tasks |
-| `task` | All tasks |
-| `note` | All notes |
-| `starred` | Starred items |
+| `done`    | Completed tasks  |
+| `task`    | All tasks        |
+| `note`    | All notes        |
+| `starred` | Starred items    |
 
 ```bash
 tb --list pending
@@ -293,11 +293,11 @@ tb --register [OPTIONS]
 
 Creates a new account on the sync server. Prompts interactively for missing values.
 
-| Option | Description |
-|--------|-------------|
-| `--server <url>` | Server URL |
-| `--username <name>` | Username |
-| `--email <email>` | Email address |
+| Option              | Description                             |
+| ------------------- | --------------------------------------- |
+| `--server <url>`    | Server URL                              |
+| `--username <name>` | Username                                |
+| `--email <email>`   | Email address                           |
 | `--password <pass>` | Password (prompted securely if omitted) |
 
 ```bash
@@ -316,12 +316,12 @@ tb --login [OPTIONS]
 
 Logs in to an existing account. Prompts interactively for missing values.
 
-| Option | Description |
-|--------|-------------|
-| `--server <url>` | Server URL |
-| `--username <name>` | Username |
+| Option              | Description                             |
+| ------------------- | --------------------------------------- |
+| `--server <url>`    | Server URL                              |
+| `--username <name>` | Username                                |
 | `--password <pass>` | Password (prompted securely if omitted) |
-| `--key <base64>` | Encryption key from registration |
+| `--key <base64>`    | Encryption key from registration        |
 
 ```bash
 # Fully interactive

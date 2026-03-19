@@ -29,6 +29,7 @@ cargo test --workspace        # Unit and integration tests
 ## Reporting
 
 For each step, report:
+
 - **PASS** or **FAIL**
 - If FAIL: the relevant error output, file, and line number
 - A brief summary of what went wrong and how to fix it

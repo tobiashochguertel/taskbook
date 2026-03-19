@@ -39,6 +39,7 @@ tb --register
 ```
 
 You'll be prompted for:
+
 - **Server URL**: The URL of your taskbook server
 - **Username**: Your chosen username
 - **Email**: Your email address
@@ -77,6 +78,7 @@ tb --login
 ```
 
 You'll be prompted for:
+
 - **Server URL**: Same server you registered with
 - **Username**: Your username
 - **Password**: Your password
@@ -99,6 +101,7 @@ tb --migrate
 ```
 
 The migrate command:
+
 1. Reads all items from local storage
 2. Reads all items from local archive
 3. Encrypts and uploads everything to the server
@@ -110,6 +113,7 @@ tb --status
 ```
 
 Output shows:
+
 ```
 Mode:   remote
 Server: https://taskbook.example.com
@@ -126,6 +130,7 @@ tb --logout
 ```
 
 This:
+
 - Invalidates your session on the server
 - Deletes local credentials
 - Disables sync (returns to local-only mode)
@@ -144,6 +149,7 @@ Your data remains on the server and can be accessed by logging in again.
 ### What's Encrypted
 
 The entire `StorageItem` JSON is encrypted, including:
+
 - Description
 - Board names
 - Dates and timestamps
@@ -154,6 +160,7 @@ The entire `StorageItem` JSON is encrypted, including:
 ### What the Server Sees
 
 The server can only see:
+
 - Item ID (string key like "1", "2")
 - Whether the item is archived
 - Creation and update timestamps
@@ -184,6 +191,7 @@ This file should be protected with appropriate file permissions (created with mo
 ### Use HTTPS
 
 Always use HTTPS for the server URL in production:
+
 ```
 https://taskbook.example.com  ✓
 http://taskbook.example.com   ✗ (only for local testing)
@@ -202,6 +210,7 @@ http://taskbook.example.com   ✗ (only for local testing)
 ## Offline Usage
 
 When sync is enabled but the server is unreachable:
+
 - Read operations use cached local data
 - Write operations will fail with a connection error
 
@@ -212,6 +221,7 @@ For reliable offline support, consider keeping sync disabled when traveling and 
 ### "Connection refused"
 
 The server is not running or not reachable:
+
 ```bash
 # Check if server is running
 curl http://localhost:8080/api/v1/health
@@ -220,6 +230,7 @@ curl http://localhost:8080/api/v1/health
 ### "Authentication required" or "Invalid credentials"
 
 Your session may have expired:
+
 ```bash
 # Login again
 tb --login
@@ -228,6 +239,7 @@ tb --login
 ### "Decryption failed"
 
 Wrong encryption key. Make sure you're using the key from registration:
+
 ```bash
 # Check your saved key
 cat ~/.taskbook/credentials.json
@@ -236,6 +248,7 @@ cat ~/.taskbook/credentials.json
 ### Lost Encryption Key
 
 If you've lost your encryption key, your data cannot be recovered. You'll need to:
+
 1. Create a new account with `tb --register`
 2. Start fresh with new tasks
 

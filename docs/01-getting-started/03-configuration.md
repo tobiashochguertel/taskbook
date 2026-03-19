@@ -44,10 +44,12 @@ Directory where taskbook stores its data. The actual storage location is `<taskb
 Results in data stored at `~/.taskbook/storage/storage.json`.
 
 You can also specify this directory:
+
 - Via CLI: `tb --taskbook-dir /path/to/dir`
 - Via environment variable: `TASKBOOK_DIR=/path/to/dir`
 
 Priority order (highest to lowest):
+
 1. `--taskbook-dir` CLI flag
 2. `TASKBOOK_DIR` environment variable
 3. `taskbookDirectory` in config file
@@ -98,14 +100,14 @@ Color theme for the terminal output. Can be a preset name or custom color defini
 
 Available presets:
 
-| Theme | Description |
-|-------|-------------|
-| `default` | Neutral colors, works on most terminals |
+| Theme                  | Description                                             |
+| ---------------------- | ------------------------------------------------------- |
+| `default`              | Neutral colors, works on most terminals                 |
 | `catppuccin-macchiato` | [Catppuccin](https://catppuccin.com/) Macchiato variant |
-| `catppuccin-mocha` | Catppuccin Mocha (darkest) |
-| `catppuccin-frappe` | Catppuccin Frappé |
-| `catppuccin-latte` | Catppuccin Latte (light theme) |
-| `high-contrast` | High contrast for accessibility |
+| `catppuccin-mocha`     | Catppuccin Mocha (darkest)                              |
+| `catppuccin-frappe`    | Catppuccin Frappé                                       |
+| `catppuccin-latte`     | Catppuccin Latte (light theme)                          |
+| `high-contrast`        | High contrast for accessibility                         |
 
 #### Custom Theme
 
@@ -125,15 +127,15 @@ Define custom RGB colors for each element:
 }
 ```
 
-| Color | Used For |
-|-------|----------|
-| `muted` | Secondary text (IDs, labels, completed task text) |
-| `success` | Checkmarks, completed counts, normal priority |
-| `warning` | In-progress indicators, medium priority |
-| `error` | Error messages, high priority |
-| `info` | Notes, information text |
-| `pending` | Pending task icons and counts |
-| `starred` | Star indicators |
+| Color     | Used For                                          |
+| --------- | ------------------------------------------------- |
+| `muted`   | Secondary text (IDs, labels, completed task text) |
+| `success` | Checkmarks, completed counts, normal priority     |
+| `warning` | In-progress indicators, medium priority           |
+| `error`   | Error messages, high priority                     |
+| `info`    | Notes, information text                           |
+| `pending` | Pending task icons and counts                     |
+| `starred` | Star indicators                                   |
 
 ### sortMethod
 
@@ -142,11 +144,11 @@ Define custom RGB colors for each element:
 
 Sort method for items within boards. Can be cycled in the TUI with a keybinding.
 
-| Value | Description |
-|-------|-------------|
-| `id` | Sort by item ID (creation order) |
-| `priority` | Sort by priority (high first), then ID |
-| `status` | Sort by status (pending, in-progress, done), then ID |
+| Value      | Description                                          |
+| ---------- | ---------------------------------------------------- |
+| `id`       | Sort by item ID (creation order)                     |
+| `priority` | Sort by priority (high first), then ID               |
+| `status`   | Sort by status (pending, in-progress, done), then ID |
 
 ```json
 {
@@ -170,10 +172,10 @@ Configuration for server sync. This is typically managed automatically by the `-
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `enabled` | `boolean` | Whether sync is active |
-| `serverUrl` | `string` | URL of the sync server |
+| Field       | Type      | Description            |
+| ----------- | --------- | ---------------------- |
+| `enabled`   | `boolean` | Whether sync is active |
+| `serverUrl` | `string`  | URL of the sync server |
 
 When `enabled` is `true`, all task operations are synced to the server. The client stores encrypted data locally as a cache and syncs with the server on each operation.
 
@@ -181,10 +183,10 @@ See [Sync & Encryption](../02-usage/02-sync.md) for setup instructions.
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `TASKBOOK_DIR` | Override taskbook data directory |
-| `EDITOR` | External editor for `--note` and `--edit-note` (falls back to `VISUAL`, then `vi`) |
+| Variable       | Description                                                                        |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `TASKBOOK_DIR` | Override taskbook data directory                                                   |
+| `EDITOR`       | External editor for `--note` and `--edit-note` (falls back to `VISUAL`, then `vi`) |
 
 ## Data Storage
 

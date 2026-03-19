@@ -325,6 +325,7 @@ spec:
 ```
 
 Update ConfigMap:
+
 ```yaml
 TB_DB_HOST: "postgres.taskbook.svc.cluster.local"
 ```
@@ -401,7 +402,7 @@ metadata:
   name: taskbook-server
   namespace: taskbook
   labels:
-    release: prometheus-operator  # Must match your Prometheus serviceMonitorSelector
+    release: prometheus-operator # Must match your Prometheus serviceMonitorSelector
 spec:
   selector:
     matchLabels:
