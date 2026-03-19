@@ -28,7 +28,7 @@ Add to `~/.vscode/mcp.json`:
 }
 ```
 
-## With Environment Variables
+### With Environment Variables
 
 ```json
 {
@@ -52,11 +52,16 @@ Add to `~/.vscode/mcp.json`:
   "servers": {
     "taskbook": {
       "type": "http",
-      "url": "https://your-mcp-server.example.com/mcp"
+      "url": "https://your-mcp-server.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-TB_MCP_ACCESS_TOKEN>"
+      }
     }
   }
 }
 ```
+
+> See [Tools Reference](../guides/mcp/tools-reference.md) for tool selection examples.
 
 ## Verification
 
@@ -64,3 +69,9 @@ Add to `~/.vscode/mcp.json`:
 2. Open Copilot Chat (Ctrl+Shift+I)
 3. Type: "List my taskbook boards"
 4. Copilot should use the `list_boards` MCP tool
+
+## Reference
+
+- [Environment Variables](../guides/mcp/env-variables.md) — all `TB_*` variables
+- [Tools Reference](../guides/mcp/tools-reference.md) — all 15 MCP tools
+- [Authelia SSO Guide](../guides/auth/authelia-sso.md) — OIDC setup

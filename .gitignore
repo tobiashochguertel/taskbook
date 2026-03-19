@@ -25,4 +25,7 @@ k8s/
 .DS_Store
 result
 binaries/
+
+# in Public repositories on github.com we ignore the prompts.
 docs/prompts/
+docs/sessions/

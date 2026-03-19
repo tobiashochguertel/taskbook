@@ -1,9 +1,9 @@
 # Claude Desktop — Taskbook MCP Configuration
 
-## Configuration
-
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+## stdio Transport (Local)
 
 ```json
 {
@@ -15,7 +15,7 @@
 }
 ```
 
-## With Environment Variables
+### With Environment Variables
 
 ```json
 {
@@ -32,6 +32,8 @@
 }
 ```
 
+> **Note:** Claude Desktop does not expand shell variables in JSON. Paste literal values.
+
 ## Verification
 
 1. Restart Claude Desktop after saving the config
@@ -41,4 +43,7 @@
 
 ## Reference
 
+- [Environment Variables](../guides/mcp/env-variables.md) — all `TB_*` variables
+- [Tools Reference](../guides/mcp/tools-reference.md) — all 15 MCP tools
+- [Authelia SSO Guide](../guides/auth/authelia-sso.md) — OIDC setup
 - [Claude Desktop MCP Setup](https://modelcontextprotocol.io/docs/getting-started/intro)
