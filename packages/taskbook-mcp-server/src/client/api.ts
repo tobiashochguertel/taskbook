@@ -338,8 +338,8 @@ export class TaskbookClient {
     return Object.values(items).filter(
       (item) =>
         item.description.toLowerCase().includes(lower) ||
-        item.tags.some((t) => t.includes(lower)) ||
-        item.boards.some((b) => b.toLowerCase().includes(lower)),
+        (item.tags ?? []).some((t) => t.includes(lower)) ||
+        (item.boards ?? []).some((b) => b.toLowerCase().includes(lower)),
     );
   }
 }

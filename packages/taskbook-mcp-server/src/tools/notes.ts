@@ -4,8 +4,9 @@ import type { TaskbookClient, Note } from "../client/api.js";
 
 function formatNote(n: Note): string {
   const star = n.isStarred ? "★ " : "";
-  const tags = n.tags.length > 0 ? ` +${n.tags.join(" +")}` : "";
-  const boards = n.boards.map((b) => `@${b}`).join(" ");
+  const tags =
+    n.tags && n.tags.length > 0 ? ` +${n.tags.join(" +")}` : "";
+  const boards = (n.boards ?? []).map((b) => `@${b}`).join(" ");
   const body = n.body ? `\n   ${n.body}` : "";
   return `📝 ${n._id}. ${star}${n.description}${tags}  (${boards})${body}`;
 }

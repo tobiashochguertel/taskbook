@@ -6,8 +6,9 @@ function formatTask(t: Task): string {
   const status = t.isComplete ? "✔" : t.inProgress ? "…" : "☐";
   const star = t.isStarred ? "★ " : "";
   const pri = t.priority > 1 ? ` [P${t.priority}]` : "";
-  const tags = t.tags.length > 0 ? ` +${t.tags.join(" +")}` : "";
-  const boards = t.boards.map((b) => `@${b}`).join(" ");
+  const tags =
+    t.tags && t.tags.length > 0 ? ` +${t.tags.join(" +")}` : "";
+  const boards = (t.boards ?? []).map((b) => `@${b}`).join(" ");
   return `${status} ${t._id}. ${star}${t.description}${pri}${tags}  (${boards})`;
 }
 
