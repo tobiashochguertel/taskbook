@@ -416,7 +416,24 @@ pub fn status() -> Result<()> {
                     }
                     Err(e) => {
                         println!("Session:     {}", "invalid".red());
-                        println!("Error:       {}", e);
+                        let err_msg = e.to_string();
+                        // Redact potential tokens/credentials from error output
+                        let sanitized = if err_msg.contains("token") || err_msg.contains("Bearer") {
+                            err_msg
+                                .split_whitespace()
+                                .map(|w| {
+                                    if w.len() > 20 && !w.starts_with("http") {
+                                        "[REDACTED]"
+                                    } else {
+                                        w
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                                .join(" ")
+                        } else {
+                            err_msg
+                        };
+                        println!("Error:       {}", sanitized);
                         println!();
                         println!(
                             "{}",
