@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { api, type TokenInfo } from "../lib/api";
+import { TaskbookLogo } from "../components/ui/taskbook-logo";
 
 export function ProfilePage() {
   const { token, logout } = useAuth();
@@ -73,32 +74,49 @@ export function ProfilePage() {
     <div className="min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Header */}
       <header
-        className="flex items-center justify-between px-6 py-4 border-b"
-        style={{ borderColor: "var(--color-border)" }}
+        className="flex items-center justify-between px-3 md:px-6 py-2 border-b safe-top"
+        style={{
+          backgroundColor: "var(--color-surface)",
+          borderColor: "var(--color-border)",
+        }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <a
             href="/"
-            className="text-sm font-medium hover:opacity-80"
+            className="flex items-center gap-1.5 no-underline"
             style={{ color: "var(--color-accent)" }}
           >
-            ← Back to Board
+            <TaskbookLogo size={20} />
+            <span className="hidden md:inline text-base font-bold">
+              Taskbook
+            </span>
           </a>
-          <span style={{ color: "var(--color-text-secondary)" }}>|</span>
-          <h1 className="text-lg font-bold" style={{ color: "var(--color-text)" }}>
+          <span
+            style={{ color: "var(--color-border)" }}
+            className="hidden md:inline"
+          >
+            /
+          </span>
+          <h1
+            className="text-base font-bold"
+            style={{ color: "var(--color-text)", margin: 0 }}
+          >
             Profile
           </h1>
         </div>
         <button
           onClick={logout}
-          className="text-sm px-3 py-1 rounded hover:opacity-80"
-          style={{ color: "var(--color-danger, #ef4444)" }}
+          className="text-xs px-3 py-1.5 rounded cursor-pointer border-none"
+          style={{
+            color: "var(--color-error)",
+            background: "none",
+          }}
         >
-          Logout
+          Sign out
         </button>
       </header>
 
-      <div className="max-w-3xl mx-auto p-6 space-y-8">
+      <div className="max-w-3xl mx-auto px-3 md:px-6 py-4 md:py-6 space-y-6 md:space-y-8">
         {/* User Info Card */}
         <section
           className="rounded-lg p-6 border"

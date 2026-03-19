@@ -3,13 +3,9 @@ import {
   ArchiveRestore,
   CheckSquare,
   ChevronDown,
-  LogOut,
-  RefreshCw,
   Search,
-  Settings,
   StickyNote,
   Trash2,
-  User,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CommandPalette } from "../components/ui/command-palette";
@@ -18,7 +14,10 @@ import { CreateItemSheet } from "../components/ui/create-item-sheet";
 import { Drawer } from "../components/ui/drawer";
 import { Fab } from "../components/ui/fab";
 import { type MobileTab, MobileTabs } from "../components/ui/mobile-tabs";
+import { ProfileMenu } from "../components/ui/profile-menu";
 import { SettingsDialog } from "../components/ui/settings-dialog";
+import { SyncStatusButton } from "../components/ui/sync-status-button";
+import { TaskbookLogo } from "../components/ui/taskbook-logo";
 import { TaskCard } from "../components/ui/task-card";
 import { useArchive, useEventSync, useItems, useUser } from "../hooks/useItems";
 import { api } from "../lib/api";
@@ -522,12 +521,19 @@ export function BoardPage() {
             />
           )}
 
-          <h1
-            className="text-base md:text-lg font-bold"
+          <a
+            href="/"
+            className="flex items-center gap-1.5 no-underline"
             style={{ color: "var(--color-accent)" }}
           >
-            ⚡ Taskbook
-          </h1>
+            <TaskbookLogo size={20} />
+            <h1
+              className="text-base md:text-lg font-bold"
+              style={{ color: "var(--color-accent)", margin: 0 }}
+            >
+              Taskbook
+            </h1>
+          </a>
 
           {/* Board selector (hidden on mobile with tabs — use drawer instead) */}
           <div className="hidden md:block relative">
@@ -562,7 +568,7 @@ export function BoardPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-1 md:gap-3">
+        <div className="flex items-center gap-1 md:gap-2">
           {/* Archive button (desktop) */}
           {!isMobile && (
             <button
@@ -597,103 +603,22 @@ export function BoardPage() {
             <Search size={18} />
           </button>
 
-          {/* Sync status + refresh grouped together */}
-          <div className="flex items-center gap-1">
-            <ConnectionIndicator
-              syncState={syncState}
-              lastSyncTime={lastSyncTime}
-              syncError={syncError}
-            />
+          {/* Sync status button (replaces separate ConnectionIndicator + RefreshCw) */}
+          <SyncStatusButton
+            syncState={syncState}
+            lastSyncTime={lastSyncTime}
+            syncError={syncError}
+            isUpdating={isUpdating}
+            onRefresh={() => refetch()}
+          />
 
-            <button
-              type="button"
-              onClick={() => refetch()}
-              className="flex items-center justify-center cursor-pointer border-none rounded-md transition-colors"
-              style={{
-                color: "var(--color-text-muted)",
-                background: "none",
-                width: 44,
-                height: 44,
-              }}
-              title="Sync with server"
-              aria-label="Sync with server"
-            >
-              <RefreshCw
-                size={16}
-                className={
-                  syncState === "syncing" || isUpdating
-                    ? "animate-spin"
-                    : ""
-                }
-              />
-            </button>
-          </div>
-
-          <span
-            className="hidden md:inline text-xs md:text-sm"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            {user.data?.username}
-            {user.data?.email && user.data.email !== user.data.username && (
-              <span className="hidden lg:inline text-xs ml-1 opacity-70">
-                ({user.data.email})
-              </span>
-            )}
-          </span>
-
-          {/* Settings gear — always visible when burger menu is hidden */}
-          {!showBurger && (
-            <>
-              <a
-                href="/profile"
-                className="flex items-center justify-center cursor-pointer border-none rounded-md"
-                style={{
-                  color: "var(--color-text-muted)",
-                  background: "none",
-                  width: 44,
-                  height: 44,
-                  textDecoration: "none",
-                }}
-                title="Profile & Tokens"
-                aria-label="Profile & Tokens"
-              >
-                <User size={16} />
-              </a>
-              <button
-                type="button"
-                onClick={() => setShowSettings(true)}
-                className="flex items-center justify-center cursor-pointer border-none rounded-md"
-                style={{
-                  color: "var(--color-text-muted)",
-                  background: "none",
-                  width: 44,
-                  height: 44,
-                }}
-                title="Settings"
-                aria-label="Settings"
-              >
-                <Settings size={16} />
-              </button>
-            </>
-          )}
-
-          {/* Logout only on desktop (mobile uses drawer) */}
-          {!isMobile && (
-            <button
-              type="button"
-              onClick={logout}
-              className="flex items-center justify-center cursor-pointer border-none rounded-md"
-              style={{
-                color: "var(--color-text-muted)",
-                background: "none",
-                width: 44,
-                height: 44,
-              }}
-              title="Logout"
-            >
-              <LogOut size={16} />
-            </button>
-          )}
+          {/* Profile avatar menu (replaces username, User, Settings, Logout buttons) */}
+          <ProfileMenu
+            username={user.data?.username}
+            email={user.data?.email}
+            onOpenSettings={() => setShowSettings(true)}
+            onLogout={logout}
+          />
         </div>
       </header>
 
