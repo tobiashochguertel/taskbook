@@ -62,6 +62,17 @@ export function ProfilePage() {
     setCopied(false);
   }, [createdToken]);
 
+  // ESC to go back to board
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        window.location.href = "/";
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const formatDate = (iso: string | null) => {
     if (!iso) return "Never";
     return new Date(iso).toLocaleDateString(undefined, {

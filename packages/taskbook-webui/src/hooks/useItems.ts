@@ -59,16 +59,23 @@ export function useItems() {
   const [syncState, setSyncState] = useState<SyncState>("idle");
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  // Track whether a mutation is in-flight to suppress refetch-based overwrites
+  const mutatingRef = useRef(false);
 
   useEffect(() => {
+    // Don't overwrite optimistic state while a mutation is in-flight
+    if (mutatingRef.current) return;
     if (rawQuery.data?.items) {
       setDecrypting(true);
       decryptItems(rawQuery.data.items, encryptionKey).then((decrypted) => {
-        setItems(decrypted);
+        // Double-check mutation didn't start while we were decrypting
+        if (!mutatingRef.current) {
+          setItems(decrypted);
+          setSyncState("success");
+          setLastSyncTime(new Date());
+          setSyncError(null);
+        }
         setDecrypting(false);
-        setSyncState("success");
-        setLastSyncTime(new Date());
-        setSyncError(null);
       });
     }
   }, [rawQuery.data, encryptionKey]);
@@ -85,23 +92,29 @@ export function useItems() {
       return api.putItems(token, encrypted);
     },
     onMutate: async (updatedItems) => {
-      // Optimistic update — show changes immediately
+      mutatingRef.current = true;
+      // Cancel in-flight fetches to prevent stale data from overwriting
+      await queryClient.cancelQueries({ queryKey: ["items-raw"] });
       const previous = { ...items };
       setItems(updatedItems);
       setSyncState("syncing");
       return { previous };
     },
     onError: (_err, _vars, context) => {
-      // Rollback on error
       if (context?.previous) setItems(context.previous);
       setSyncState("error");
       setSyncError(_err instanceof Error ? _err.message : "Sync failed");
+      mutatingRef.current = false;
     },
     onSuccess: () => {
       setSyncState("success");
       setLastSyncTime(new Date());
       setSyncError(null);
+      mutatingRef.current = false;
       queryClient.invalidateQueries({ queryKey: ["items-raw"] });
+    },
+    onSettled: () => {
+      mutatingRef.current = false;
     },
   });
 
@@ -134,12 +147,16 @@ export function useArchive() {
     {},
   );
   const [decrypting, setDecrypting] = useState(false);
+  const mutatingRef = useRef(false);
 
   useEffect(() => {
+    if (mutatingRef.current) return;
     if (rawQuery.data?.items) {
       setDecrypting(true);
       decryptItems(rawQuery.data.items, encryptionKey).then((decrypted) => {
-        setArchiveItems(decrypted);
+        if (!mutatingRef.current) {
+          setArchiveItems(decrypted);
+        }
         setDecrypting(false);
       });
     }
@@ -160,15 +177,22 @@ export function useArchive() {
       return api.putArchive(token, encrypted);
     },
     onMutate: async (updatedItems) => {
+      mutatingRef.current = true;
+      await queryClient.cancelQueries({ queryKey: ["archive-raw"] });
       const previous = { ...archiveItems };
       setArchiveItems(updatedItems);
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) setArchiveItems(context.previous);
+      mutatingRef.current = false;
     },
     onSuccess: () => {
+      mutatingRef.current = false;
       queryClient.invalidateQueries({ queryKey: ["archive-raw"] });
+    },
+    onSettled: () => {
+      mutatingRef.current = false;
     },
   });
 
@@ -193,6 +217,7 @@ export function useEventSync() {
 
     es.onmessage = () => {
       queryClient.invalidateQueries({ queryKey: ["items-raw"] });
+      queryClient.invalidateQueries({ queryKey: ["archive-raw"] });
     };
 
     es.onerror = () => {

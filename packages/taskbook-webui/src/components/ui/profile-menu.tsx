@@ -19,7 +19,7 @@ function getAvatarColor(name: string): string {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
   const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 50%, 40%)`;
+  return `hsl(${hue}, 35%, 50%)`;
 }
 
 export function ProfileMenu({
@@ -68,16 +68,17 @@ export function ProfileMenu({
       <button
         type="button"
         onClick={() => setShowMenu((prev) => !prev)}
-        className="flex items-center justify-center cursor-pointer border-none rounded-full transition-opacity"
+        className="flex items-center justify-center cursor-pointer rounded-full transition-opacity"
         style={{
-          width: 32,
-          height: 32,
-          backgroundColor: avatarBg,
-          color: "#fff",
-          fontSize: 13,
-          fontWeight: 600,
+          width: 28,
+          height: 28,
+          backgroundColor: "transparent",
+          border: `1.5px solid ${avatarBg}`,
+          color: avatarBg,
+          fontSize: 11,
+          fontWeight: 500,
           fontFamily: "var(--font-mono)",
-          opacity: showMenu ? 1 : 0.85,
+          opacity: showMenu ? 1 : 0.7,
         }}
         title={username || email || "Profile"}
         aria-label="Profile menu"
