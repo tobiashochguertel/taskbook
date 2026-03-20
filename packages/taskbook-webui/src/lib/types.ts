@@ -48,6 +48,29 @@ export function normalizeItem<T extends StorageItem>(raw: Record<string, unknown
   return item as T;
 }
 
+export const META_BOARDS_KEY = "_meta_boards";
+
+export interface BoardsMetadata {
+  _id: 0;
+  _isTask: false;
+  _date: string;
+  _timestamp: number;
+  _meta: "boards";
+  boards: string[];
+  description: string;
+  isStarred: false;
+  tags: string[];
+}
+
+export function isBoardsMetadata(item: unknown): item is BoardsMetadata {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "_meta" in item &&
+    (item as Record<string, unknown>)._meta === "boards"
+  );
+}
+
 export type BoardItems = Record<string, StorageItem[]>;
 
 export function groupByBoard(items: StorageItem[]): BoardItems {
