@@ -22,6 +22,7 @@ pub fn generate_key() -> [u8; 32] {
 ///
 /// The item is serialized to JSON, then encrypted with a random 12-byte nonce.
 /// The nonce is returned alongside the ciphertext so it can be stored for decryption.
+#[allow(deprecated)] // GenericArray::from_slice deprecated in generic-array 1.x; aes_gcm hasn't migrated yet
 pub fn encrypt_item(key: &[u8; 32], item: &StorageItem) -> Result<EncryptedItem, CommonError> {
     let plaintext = serde_json::to_vec(item).map_err(CommonError::Json)?;
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
@@ -37,6 +38,7 @@ pub fn encrypt_item(key: &[u8; 32], item: &StorageItem) -> Result<EncryptedItem,
 }
 
 /// Decrypt an `EncryptedItem` back into a `StorageItem` using AES-256-GCM.
+#[allow(deprecated)] // GenericArray::from_slice deprecated in generic-array 1.x; aes_gcm hasn't migrated yet
 pub fn decrypt_item(key: &[u8; 32], encrypted: &EncryptedItem) -> Result<StorageItem, CommonError> {
     if encrypted.nonce.len() != 12 {
         return Err(CommonError::InvalidNonce {

@@ -1,5 +1,5 @@
-/// Centralized constants for the taskbook server.
-/// Keeps magic numbers in one place for easy tuning and documentation.
+// Centralized constants for the taskbook server.
+// Keeps magic numbers in one place for easy tuning and documentation.
 
 // ── Database Pool ───────────────────────────────────────────────────
 pub const DB_SLOW_STATEMENT_THRESHOLD_SECS: u64 = 5;

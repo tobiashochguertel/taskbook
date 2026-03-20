@@ -70,7 +70,7 @@ jobs:
 
       - name: Run tests
         working-directory: packages/taskbook-mcp-server
-        run: bun test
+        run: bun run test
 
       - name: Build
         working-directory: packages/taskbook-mcp-server
