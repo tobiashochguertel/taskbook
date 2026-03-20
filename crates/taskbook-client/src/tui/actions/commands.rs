@@ -1,7 +1,7 @@
 use crate::error::Result;
 use taskbook_common::board;
 
-use super::super::app::{App, PendingAction, PopupState, StatusKind, ViewMode};
+use super::super::app::{App, PendingAction, PopupState, StatusKind, SyncState, ViewMode};
 use super::super::command_parser::ParsedCommand;
 use super::item_ops;
 use super::resolve_board;
@@ -129,19 +129,39 @@ pub(super) fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
             app.set_status(msg.to_string(), StatusKind::Info);
         }
         ParsedCommand::Sync => {
+            app.sync_state = SyncState::Syncing;
             app.set_status("Syncing...".to_string(), StatusKind::Info);
-            app.refresh_items()?;
-            app.set_status("✔ Synced".to_string(), StatusKind::Success);
+            match app.refresh_items() {
+                Ok(()) => {
+                    app.sync_state = SyncState::Success;
+                    app.last_sync_time = Some(std::time::Instant::now());
+                    app.set_status("✔ Synced".to_string(), StatusKind::Success);
+                }
+                Err(e) => {
+                    app.sync_state = SyncState::Error;
+                    app.set_status(format!("✗ Sync failed: {e}"), StatusKind::Error);
+                }
+            }
         }
         ParsedCommand::ForceSync => {
+            app.sync_state = SyncState::Syncing;
             app.set_status("Force syncing...".to_string(), StatusKind::Info);
             app.items.clear();
-            app.refresh_items()?;
-            let count = app.items.len();
-            app.set_status(
-                format!("✔ Force synced ({count} items)"),
-                StatusKind::Success,
-            );
+            match app.refresh_items() {
+                Ok(()) => {
+                    let count = app.items.len();
+                    app.sync_state = SyncState::Success;
+                    app.last_sync_time = Some(std::time::Instant::now());
+                    app.set_status(
+                        format!("✔ Force synced ({count} items)"),
+                        StatusKind::Success,
+                    );
+                }
+                Err(e) => {
+                    app.sync_state = SyncState::Error;
+                    app.set_status(format!("✗ Force sync failed: {e}"), StatusKind::Error);
+                }
+            }
         }
         ParsedCommand::Ping => {
             let config = crate::config::Config::load_or_default();

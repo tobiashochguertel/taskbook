@@ -96,6 +96,22 @@ pub struct App {
     pub history_saved_input: String,
     /// Last mouse click time (for double-click detection)
     pub last_click_time: Option<Instant>,
+    /// Dynamic sync operation state (idle/syncing/success/error/offline)
+    pub sync_state: SyncState,
+    /// Time of last successful sync
+    pub last_sync_time: Option<Instant>,
+}
+
+/// Tracks the current sync operation state for status bar display.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum SyncState {
+    #[default]
+    Idle,
+    Syncing,
+    Success,
+    Error,
+    Offline,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -216,6 +232,8 @@ impl App {
             history_index: None,
             history_saved_input: String::new(),
             last_click_time: None,
+            sync_state: SyncState::default(),
+            last_sync_time: None,
             cached_stats: Stats {
                 percent: 0,
                 complete: 0,
@@ -225,7 +243,18 @@ impl App {
             },
         };
 
-        app.refresh_items()?;
+        app.sync_state = SyncState::Syncing;
+        match app.refresh_items() {
+            Ok(()) => {
+                app.sync_state = SyncState::Success;
+                app.last_sync_time = Some(Instant::now());
+            }
+            Err(e) => {
+                app.sync_state = SyncState::Error;
+                // Log but don't fail startup — allow offline usage
+                eprintln!("Initial sync failed: {e}");
+            }
+        }
 
         // If restoring archive view, load archive items instead
         if initial_view == ViewMode::Archive {

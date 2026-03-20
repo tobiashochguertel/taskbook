@@ -7,7 +7,7 @@ use ratatui::{
 
 use ratatui::layout::Rect;
 
-use crate::tui::app::{App, StatusKind, ViewMode};
+use crate::tui::app::{App, StatusKind, SyncState, ViewMode};
 
 // ---------------------------------------------------------------------------
 // Section background colors (Zellij-inspired)
@@ -26,6 +26,14 @@ const BG_KEYS: Color = Color::Rgb(40, 40, 48);
 const COUNT_WIDTH: usize = 2;
 /// Fixed width for percentage display (always "XXX%").
 const PERCENT_WIDTH: usize = 3;
+
+// Width thresholds for adaptive display
+/// Below this width, hide stats section (keep sync indicator + nav + keys)
+const THRESHOLD_STATS: usize = 100;
+/// Below this width, hide view navigation section (keep sync + minimal keys)
+const THRESHOLD_NAV: usize = 60;
+/// Below this width, hide task/note key hints (keep only ? / q)
+const THRESHOLD_FULL_KEYS: usize = 45;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -60,19 +68,24 @@ pub fn render_stats_line(frame: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
+    let width = area.width as usize;
     let mut spans: Vec<Span> = Vec::new();
 
-    // ── Section 1: Sync state ────────────────────────────────────────
+    // ── Section 1: Sync state + stats ────────────────────────────────
     if app.config.display_progress_overview {
         build_sync_section(app, &mut spans);
-        build_stats_section(app, &mut spans);
+        if width >= THRESHOLD_STATS {
+            build_stats_section(app, &mut spans);
+        }
     }
 
-    // ── Section 3: View navigation ───────────────────────────────────
-    build_nav_section(app, &mut spans);
+    // ── Section 2: View navigation (hide on very narrow terminals) ───
+    if width >= THRESHOLD_NAV {
+        build_nav_section(app, &mut spans);
+    }
 
-    // ── Section 4: Key hints ─────────────────────────────────────────
-    build_key_hints_section(app, &mut spans);
+    // ── Section 3: Key hints (adaptive detail) ───────────────────────
+    build_key_hints_section(app, &mut spans, width);
 
     let stats_line = Line::from(spans);
     frame.render_widget(Paragraph::new(stats_line), area);
@@ -82,18 +95,10 @@ pub fn render_stats_line(frame: &mut Frame, app: &App, area: Rect) {
 // Section builders
 // ---------------------------------------------------------------------------
 
-/// Section 1: Sync/connection state — teal background.
+/// Section 1: Sync/connection state — teal background (dynamic).
 fn build_sync_section<'a>(app: &'a App, spans: &mut Vec<Span<'a>>) {
     let bg = BG_SYNC;
-    if app.config.sync.enabled {
-        spans.push(Span::styled(
-            " ● Synced ",
-            Style::default()
-                .fg(Color::Green)
-                .bg(bg)
-                .add_modifier(Modifier::BOLD),
-        ));
-    } else {
+    if !app.config.sync.enabled {
         spans.push(Span::styled(
             " ● Local ",
             Style::default()
@@ -101,8 +106,22 @@ fn build_sync_section<'a>(app: &'a App, spans: &mut Vec<Span<'a>>) {
                 .bg(bg)
                 .add_modifier(Modifier::BOLD),
         ));
+    } else {
+        let (symbol, label, color) = match app.sync_state {
+            SyncState::Syncing => ("◌", " Syncing…", Color::Yellow),
+            SyncState::Success => ("●", " Synced", Color::Green),
+            SyncState::Error => ("●", " Error", Color::Red),
+            SyncState::Offline => ("●", " Offline", Color::Red),
+            SyncState::Idle => ("●", " Synced", Color::Green),
+        };
+        spans.push(Span::styled(
+            format!(" {symbol}{label} "),
+            Style::default()
+                .fg(color)
+                .bg(bg)
+                .add_modifier(Modifier::BOLD),
+        ));
     }
-    // Separator chevron
     spans.push(Span::styled(" ", Style::default()));
 }
 
@@ -180,8 +199,8 @@ fn build_nav_section<'a>(app: &'a App, spans: &mut Vec<Span<'a>>) {
     spans.push(Span::styled(" ", Style::default()));
 }
 
-/// Section 4: Important key bindings — dark gray background.
-fn build_key_hints_section<'a>(app: &'a App, spans: &mut Vec<Span<'a>>) {
+/// Section 4: Important key bindings — dark gray background (adaptive).
+fn build_key_hints_section<'a>(app: &'a App, spans: &mut Vec<Span<'a>>, width: usize) {
     let bg = BG_KEYS;
     let key_style = Style::default()
         .fg(Color::Yellow)
@@ -197,17 +216,19 @@ fn build_key_hints_section<'a>(app: &'a App, spans: &mut Vec<Span<'a>>) {
     spans.push(Span::styled(" │ ", sep));
     spans.push(Span::styled("/", key_style));
     spans.push(Span::styled(" Cmd", label));
-    spans.push(Span::styled(" │ ", sep));
 
-    if app.view == ViewMode::Archive {
-        spans.push(Span::styled("r", key_style));
-        spans.push(Span::styled(" Restore", label));
-    } else {
-        spans.push(Span::styled("t", key_style));
-        spans.push(Span::styled(" Task", label));
+    if width >= THRESHOLD_FULL_KEYS {
         spans.push(Span::styled(" │ ", sep));
-        spans.push(Span::styled("n", key_style));
-        spans.push(Span::styled(" Note", label));
+        if app.view == ViewMode::Archive {
+            spans.push(Span::styled("r", key_style));
+            spans.push(Span::styled(" Restore", label));
+        } else {
+            spans.push(Span::styled("t", key_style));
+            spans.push(Span::styled(" Task", label));
+            spans.push(Span::styled(" │ ", sep));
+            spans.push(Span::styled("n", key_style));
+            spans.push(Span::styled(" Note", label));
+        }
     }
 
     spans.push(Span::styled(" │ ", sep));
