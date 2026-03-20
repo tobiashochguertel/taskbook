@@ -7,14 +7,14 @@
 import type { OAuthConfig, OAuthEndpoints } from "./config.js";
 import { OAuthClientStore } from "./client-store.js";
 import { OAuthFlowManager } from "./flow-manager.js";
+import { oauthErrorResponse, fetchUpstreamToken } from "./utils.js";
 
 export class OAuthRouter {
-  private clientStore = new OAuthClientStore();
-  private flowManager = new OAuthFlowManager();
-
   constructor(
     private config: OAuthConfig,
     private endpoints: OAuthEndpoints,
+    private clientStore: OAuthClientStore = new OAuthClientStore(),
+    private flowManager: OAuthFlowManager = new OAuthFlowManager(),
   ) {}
 
   /**
@@ -98,18 +98,16 @@ export class OAuthRouter {
       );
 
       if ("error" in result) {
-        return Response.json(
-          { error: "invalid_client_metadata", error_description: result.error },
-          { status: result.status },
+        return oauthErrorResponse(
+          "invalid_client_metadata",
+          result.error,
+          result.status,
         );
       }
 
       return Response.json(result, { status: 201 });
     } catch {
-      return Response.json(
-        { error: "invalid_request", error_description: "Invalid JSON body" },
-        { status: 400 },
-      );
+      return oauthErrorResponse("invalid_request", "Invalid JSON body");
     }
   }
 
@@ -126,43 +124,31 @@ export class OAuthRouter {
 
     // Validate required parameters
     if (!clientId || !redirectUri || !codeChallenge || !state) {
-      return Response.json(
-        {
-          error: "invalid_request",
-          error_description: "Missing required parameters: client_id, redirect_uri, code_challenge, state",
-        },
-        { status: 400 },
+      return oauthErrorResponse(
+        "invalid_request",
+        "Missing required parameters: client_id, redirect_uri, code_challenge, state",
       );
     }
 
     // Validate client exists
     const client = this.clientStore.getClient(clientId);
     if (!client) {
-      return Response.json(
-        { error: "invalid_client", error_description: "Unknown client_id" },
-        { status: 400 },
-      );
+      return oauthErrorResponse("invalid_client", "Unknown client_id");
     }
 
     // Validate redirect URI
     if (!this.clientStore.validateRedirectUri(clientId, redirectUri)) {
-      return Response.json(
-        {
-          error: "invalid_request",
-          error_description: "redirect_uri not registered",
-        },
-        { status: 400 },
+      return oauthErrorResponse(
+        "invalid_request",
+        "redirect_uri not registered",
       );
     }
 
     // Only S256 supported
     if (codeChallengeMethod !== "S256") {
-      return Response.json(
-        {
-          error: "invalid_request",
-          error_description: "Only S256 code_challenge_method is supported",
-        },
-        { status: 400 },
+      return oauthErrorResponse(
+        "invalid_request",
+        "Only S256 code_challenge_method is supported",
       );
     }
 
@@ -250,12 +236,9 @@ export class OAuthRouter {
       const body = (await req.json()) as Record<string, string>;
       params = new URLSearchParams(body);
     } else {
-      return Response.json(
-        {
-          error: "invalid_request",
-          error_description: "Content-Type must be application/x-www-form-urlencoded or application/json",
-        },
-        { status: 400 },
+      return oauthErrorResponse(
+        "invalid_request",
+        "Content-Type must be application/x-www-form-urlencoded or application/json",
       );
     }
 
@@ -269,12 +252,9 @@ export class OAuthRouter {
       return this.handleRefreshTokenGrant(params);
     }
 
-    return Response.json(
-      {
-        error: "unsupported_grant_type",
-        error_description: "Supported: authorization_code, refresh_token",
-      },
-      { status: 400 },
+    return oauthErrorResponse(
+      "unsupported_grant_type",
+      "Supported: authorization_code, refresh_token",
     );
   }
 
@@ -289,12 +269,9 @@ export class OAuthRouter {
       params.get("client_id") ?? this.extractClientIdFromBasicAuth(req);
 
     if (!code || !codeVerifier || !redirectUri || !clientId) {
-      return Response.json(
-        {
-          error: "invalid_request",
-          error_description: "Missing required parameters",
-        },
-        { status: 400 },
+      return oauthErrorResponse(
+        "invalid_request",
+        "Missing required parameters",
       );
     }
 
@@ -306,12 +283,9 @@ export class OAuthRouter {
     );
 
     if (!result) {
-      return Response.json(
-        {
-          error: "invalid_grant",
-          error_description: "Invalid or expired authorization code",
-        },
-        { status: 400 },
+      return oauthErrorResponse(
+        "invalid_grant",
+        "Invalid or expired authorization code",
       );
     }
 
@@ -329,99 +303,39 @@ export class OAuthRouter {
   ): Promise<Response> {
     const refreshToken = params.get("refresh_token");
     if (!refreshToken) {
-      return Response.json(
-        {
-          error: "invalid_request",
-          error_description: "Missing refresh_token",
-        },
-        { status: 400 },
+      return oauthErrorResponse("invalid_request", "Missing refresh_token");
+    }
+
+    const data = await fetchUpstreamToken(this.config, this.endpoints, {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    });
+
+    if (!data) {
+      return oauthErrorResponse(
+        "invalid_grant",
+        "Refresh token exchange failed",
       );
     }
 
-    // Forward refresh to Authelia
-    const credentials = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`,
-    ).toString("base64");
-
-    try {
-      const resp = await fetch(this.endpoints.token, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${credentials}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        }).toString(),
-      });
-
-      if (!resp.ok) {
-        return Response.json(
-          {
-            error: "invalid_grant",
-            error_description: "Refresh token exchange failed",
-          },
-          { status: 400 },
-        );
-      }
-
-      const data = (await resp.json()) as Record<string, unknown>;
-      return Response.json({
-        access_token: data.access_token,
-        token_type: "Bearer",
-        expires_in: data.expires_in ?? 3600,
-        refresh_token: data.refresh_token ?? refreshToken,
-        scope: data.scope,
-      });
-    } catch {
-      return Response.json(
-        {
-          error: "server_error",
-          error_description: "Failed to refresh token",
-        },
-        { status: 500 },
-      );
-    }
+    return Response.json({
+      access_token: data.access_token,
+      token_type: "Bearer",
+      expires_in: data.expires_in ?? 3600,
+      refresh_token: data.refresh_token ?? refreshToken,
+      scope: data.scope,
+    });
   }
 
   /** Exchange an authorization code at Authelia's token endpoint */
   private async exchangeUpstreamCode(
     code: string,
   ): Promise<{ access_token: string; refresh_token?: string } | null> {
-    const credentials = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`,
-    ).toString("base64");
-
-    try {
-      const resp = await fetch(this.endpoints.token, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${credentials}`,
-        },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: `${this.config.publicUrl}/oauth/callback`,
-        }).toString(),
-      });
-
-      if (!resp.ok) {
-        console.error(
-          `[taskbook-mcp] Upstream token exchange failed: ${resp.status}`,
-        );
-        return null;
-      }
-
-      return (await resp.json()) as {
-        access_token: string;
-        refresh_token?: string;
-      };
-    } catch (err) {
-      console.error("[taskbook-mcp] Upstream token exchange error:", err);
-      return null;
-    }
+    return fetchUpstreamToken(this.config, this.endpoints, {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: `${this.config.publicUrl}/oauth/callback`,
+    }) as Promise<{ access_token: string; refresh_token?: string } | null>;
   }
 
   private extractClientIdFromBasicAuth(req: Request): string | null {

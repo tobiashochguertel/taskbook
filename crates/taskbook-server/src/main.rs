@@ -1,5 +1,6 @@
 mod auth;
 mod config;
+mod constants;
 mod db;
 mod embedded_ui;
 mod error;

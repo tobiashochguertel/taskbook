@@ -5,6 +5,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::constants;
 use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::pat;
@@ -69,9 +70,9 @@ pub async fn create_token(
     Json(req): Json<CreateTokenRequest>,
 ) -> Result<(StatusCode, Json<CreateTokenResponse>)> {
     // Validate name
-    if req.name.is_empty() || req.name.len() > 128 {
+    if req.name.is_empty() || req.name.len() > constants::MAX_TOKEN_NAME_LEN {
         return Err(ServerError::Validation(
-            "token name must be 1-128 characters".into(),
+            format!("token name must be 1-{} characters", constants::MAX_TOKEN_NAME_LEN),
         ));
     }
     if !req
@@ -85,9 +86,12 @@ pub async fn create_token(
     }
 
     if let Some(days) = req.expires_in_days {
-        if !(1..=3650).contains(&days) {
+        if !(constants::MIN_TOKEN_EXPIRY_DAYS..=constants::MAX_TOKEN_EXPIRY_DAYS).contains(&days) {
             return Err(ServerError::Validation(
-                "expires_in_days must be between 1 and 3650".into(),
+                format!(
+                    "expires_in_days must be between {} and {}",
+                    constants::MIN_TOKEN_EXPIRY_DAYS, constants::MAX_TOKEN_EXPIRY_DAYS,
+                ),
             ));
         }
     }
