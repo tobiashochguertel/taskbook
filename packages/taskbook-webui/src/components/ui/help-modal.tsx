@@ -1,9 +1,9 @@
 import { Keyboard, X } from "lucide-react";
 import { useEffect } from "react";
 import {
+  groupByCategory,
   type KeyboardShortcut,
   type ShortcutCategory,
-  groupByCategory,
 } from "../../hooks/useKeyboardShortcuts";
 
 interface HelpModalProps {
@@ -55,6 +55,12 @@ export function HelpModal({ open, onClose, shortcuts }: HelpModalProps) {
         WebkitBackdropFilter: "blur(4px)",
       }}
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Keyboard shortcuts"
     >
       <div
         className="w-full max-w-lg rounded-xl overflow-hidden"
@@ -65,6 +71,7 @@ export function HelpModal({ open, onClose, shortcuts }: HelpModalProps) {
           maxHeight: "80vh",
         }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -97,7 +104,10 @@ export function HelpModal({ open, onClose, shortcuts }: HelpModalProps) {
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-5 overflow-y-auto" style={{ maxHeight: "calc(80vh - 64px)" }}>
+        <div
+          className="px-6 py-5 space-y-5 overflow-y-auto"
+          style={{ maxHeight: "calc(80vh - 64px)" }}
+        >
           {CATEGORY_ORDER.map((category) => {
             const items = grouped[category];
             if (items.length === 0) return null;
@@ -157,7 +167,8 @@ export function HelpModal({ open, onClose, shortcuts }: HelpModalProps) {
             className="text-center text-xs pt-1"
             style={{ color: "var(--color-text-muted)" }}
           >
-            Press <kbd
+            Press{" "}
+            <kbd
               className="inline-flex items-center justify-center rounded px-1.5 mx-0.5 font-bold"
               style={{
                 backgroundColor: "var(--color-surface)",
@@ -167,7 +178,10 @@ export function HelpModal({ open, onClose, shortcuts }: HelpModalProps) {
                 height: 18,
                 fontFamily: "var(--font-mono)",
               }}
-            >Esc</kbd> to close
+            >
+              Esc
+            </kbd>{" "}
+            to close
           </p>
         </div>
       </div>

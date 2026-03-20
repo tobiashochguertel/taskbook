@@ -248,15 +248,7 @@ export function useKeyboardShortcuts({
 export function getFooterShortcuts(
   shortcuts: KeyboardShortcut[],
 ): KeyboardShortcut[] {
-  const footerKeys = new Set([
-    "⌘K",
-    "?",
-    "n",
-    "c",
-    "s",
-    "d",
-    "Tab",
-  ]);
+  const footerKeys = new Set(["⌘K", "?", "n", "c", "s", "d", "Tab"]);
   return shortcuts.filter((s) => footerKeys.has(s.key));
 }
 

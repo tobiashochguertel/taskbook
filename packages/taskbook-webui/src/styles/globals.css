@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* ── react-grid-layout ────────────────────────────────── */
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
+/* Theme overrides for grid layout */
+.react-grid-item.react-grid-placeholder {
+  background: var(--color-accent);
+  opacity: 0.15;
+  border-radius: 0.75rem;
+}
+.react-grid-item > .react-resizable-handle::after {
+  border-color: var(--color-text-muted);
+}
+
 /* ── Dark theme (default) ─────────────────────────────── */
 :root,
 [data-theme="dark"] {

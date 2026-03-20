@@ -1,7 +1,7 @@
 import {
-  type KeyboardShortcut,
   getFooterShortcuts,
   getMobileShortcuts,
+  type KeyboardShortcut,
 } from "../../hooks/useKeyboardShortcuts";
 import { useSettings } from "../../lib/settings";
 

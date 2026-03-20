@@ -1,12 +1,12 @@
 import { CheckSquare, StickyNote } from "lucide-react";
 import { useMemo } from "react";
-import { TaskCard } from "./task-card";
 import {
   groupByBoard,
   isBoardsMetadata,
   isTask,
   type StorageItem,
 } from "../../lib/types";
+import { TaskCard } from "./task-card";
 
 interface ItemCallbacks {
   onToggleComplete: (item: StorageItem) => void;
@@ -51,10 +51,7 @@ function computeStats(boardItems: StorageItem[]): BoardStats {
  * AllBoardsView shows all boards stacked vertically, like the TUI does.
  * Each board has a header with name and completion stats, followed by its items.
  */
-export function AllBoardsView({
-  items,
-  ...callbacks
-}: AllBoardsViewProps) {
+export function AllBoardsView({ items, ...callbacks }: AllBoardsViewProps) {
   const { boards } = callbacks;
   const realItems = useMemo(
     () => items.filter((i) => !isBoardsMetadata(i)),
@@ -123,9 +120,7 @@ export function AllBoardsView({
             (i) => isTask(i) && !i.isComplete,
           );
           const notes = boardItems.filter((i) => !isTask(i));
-          const doneTasks = boardItems.filter(
-            (i) => isTask(i) && i.isComplete,
-          );
+          const doneTasks = boardItems.filter((i) => isTask(i) && i.isComplete);
 
           return (
             <section key={boardName}>

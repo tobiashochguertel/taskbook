@@ -174,8 +174,9 @@ export function DashboardLayout({ items, boards, onAddItem }: DashboardProps) {
             breakpoints={BREAKPOINTS}
             cols={COLS}
             rowHeight={ROW_HEIGHT}
-            dragConfig={{ enabled: isEditing, handle: ".widget-drag-handle" }}
-            resizeConfig={{ enabled: isEditing }}
+            isDraggable={isEditing}
+            isResizable={isEditing}
+            draggableHandle=".widget-drag-handle"
             onLayoutChange={handleLayoutChange}
             compactor={verticalCompactor}
             margin={[12, 12]}

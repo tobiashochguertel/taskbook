@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from "react";
 import {
   type BoardsMetadata,
-  type StorageItem,
-  META_BOARDS_KEY,
   getBoards,
   isBoardsMetadata,
+  META_BOARDS_KEY,
+  type StorageItem,
 } from "../lib/types";
 
 function createBoardsMetadata(boards: string[]): BoardsMetadata {
@@ -42,9 +42,7 @@ export function useBoards(
 
   const itemBoards = useMemo(() => {
     // Boards derived from actual items (excluding the meta item itself)
-    return getBoards(
-      itemsList.filter((i) => !isBoardsMetadata(i)),
-    );
+    return getBoards(itemsList.filter((i) => !isBoardsMetadata(i)));
   }, [itemsList]);
 
   const boards = useMemo(() => {
@@ -55,7 +53,9 @@ export function useBoards(
   const setCustomBoards = useCallback(
     (next: string[]) => {
       const updated = { ...items };
-      updated[META_BOARDS_KEY] = createBoardsMetadata(next) as unknown as StorageItem;
+      updated[META_BOARDS_KEY] = createBoardsMetadata(
+        next,
+      ) as unknown as StorageItem;
       updateItems(updated);
     },
     [items, updateItems],
