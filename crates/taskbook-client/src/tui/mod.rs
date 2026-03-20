@@ -167,7 +167,16 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                         app.update_display_order();
                     }
                     (ViewMode::Board | ViewMode::Timeline | ViewMode::Journal, false) => {
-                        app.refresh_items()?;
+                        app.sync_state = app::SyncState::Syncing;
+                        match app.refresh_items() {
+                            Ok(()) => {
+                                app.sync_state = app::SyncState::Success;
+                                app.last_sync_time = Some(std::time::Instant::now());
+                            }
+                            Err(_) => {
+                                app.sync_state = app::SyncState::Error;
+                            }
+                        }
                     }
                     _ => {} // Data will be loaded when user switches views
                 }

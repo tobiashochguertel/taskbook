@@ -85,8 +85,10 @@ pub fn update_suggestions(app: &mut App) {
         } else if ITEM_COMMANDS.contains(&command) {
             // Check if we should suggest items for this argument position
             if should_suggest_items(command, &text_to_cursor, last_space) {
-                suggest_items(app, &last_token);
+                suggest_items(app, &last_token, command);
             }
+        } else if command == "reset" || command == "encryption-key" {
+            suggest_subcommands(app, command, &last_token);
         }
     }
 }
@@ -168,7 +170,7 @@ fn suggest_boards(app: &mut App, partial: &str) {
     }
 }
 
-fn suggest_items(app: &mut App, partial: &str) {
+fn suggest_items(app: &mut App, partial: &str, command: &str) {
     if partial.is_empty() {
         return;
     }
@@ -186,6 +188,26 @@ fn suggest_items(app: &mut App, partial: &str) {
         .items
         .values()
         .filter(|item| item.description().to_lowercase().contains(&partial_lower))
+        .filter(|item| {
+            // Command-specific filtering
+            match command {
+                "check" => {
+                    // Only show incomplete tasks
+                    match item {
+                        taskbook_common::StorageItem::Task(t) => !t.is_complete,
+                        taskbook_common::StorageItem::Note(_) => false,
+                    }
+                }
+                "begin" => {
+                    // Only show tasks not already in-progress
+                    match item {
+                        taskbook_common::StorageItem::Task(t) => !t.in_progress && !t.is_complete,
+                        taskbook_common::StorageItem::Note(_) => false,
+                    }
+                }
+                _ => true,
+            }
+        })
         .map(|item| {
             let (is_complete, in_progress) = match item {
                 taskbook_common::StorageItem::Task(t) => (t.is_complete, t.in_progress),
@@ -232,6 +254,44 @@ fn suggest_items(app: &mut App, partial: &str) {
             kind: SuggestionKind::Item,
         });
 
+        if app.command_line.suggestions.len() >= MAX_SUGGESTIONS {
+            break;
+        }
+    }
+}
+
+/// Subcommand definitions: (parent_command, subcommand_name, description)
+const SUBCOMMANDS: &[(&str, &str, &str)] = &[
+    (
+        "reset",
+        "credentials",
+        "Delete saved token and encryption key",
+    ),
+    ("reset", "data", "Clear all local cached items"),
+    ("reset", "all", "Reset both credentials and data"),
+    (
+        "encryption-key",
+        "set",
+        "Set encryption key: /encryption-key set <base64>",
+    ),
+];
+
+fn suggest_subcommands(app: &mut App, command: &str, partial: &str) {
+    let partial_lower = partial.to_lowercase();
+    for (cmd, sub, desc) in SUBCOMMANDS {
+        if *cmd != command {
+            continue;
+        }
+        if !sub.starts_with(&partial_lower) {
+            continue;
+        }
+        let completion = format!("/{} {} ", command, sub);
+        app.command_line.suggestions.push(Suggestion {
+            display: sub.to_string(),
+            completion,
+            description: Some(desc.to_string()),
+            kind: SuggestionKind::Command,
+        });
         if app.command_line.suggestions.len() >= MAX_SUGGESTIONS {
             break;
         }

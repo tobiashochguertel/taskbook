@@ -586,6 +586,14 @@ export function BoardPage() {
             <Search size={18} />
           </button>
 
+          {/* Profile avatar menu */}
+          <ProfileMenu
+            username={user.data?.username}
+            email={user.data?.email}
+            onOpenSettings={() => setShowSettings(true)}
+            onLogout={logout}
+          />
+
           {/* Sync status button (replaces separate ConnectionIndicator + RefreshCw) */}
           <SyncStatusButton
             syncState={syncState}
@@ -593,14 +601,6 @@ export function BoardPage() {
             syncError={syncError}
             isUpdating={isUpdating}
             onRefresh={() => refetch()}
-          />
-
-          {/* Profile avatar menu (replaces username, User, Settings, Logout buttons) */}
-          <ProfileMenu
-            username={user.data?.username}
-            email={user.data?.email}
-            onOpenSettings={() => setShowSettings(true)}
-            onLogout={logout}
           />
         </div>
       </header>
