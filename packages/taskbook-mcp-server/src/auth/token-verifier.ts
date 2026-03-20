@@ -41,7 +41,7 @@ async function verifyPat(
   serverUrl: string,
 ): Promise<AuthInfo | null> {
   try {
-    const resp = await fetch(`${serverUrl}/api/auth/me`, {
+    const resp = await fetch(`${serverUrl}/api/v1/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (resp.ok) {
