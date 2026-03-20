@@ -3554,7 +3554,7 @@ dependencies = [
  "once_cell",
  "ring",
  "rustls-pki-types",
- "rustls-webpki 0.103.9",
+ "rustls-webpki 0.103.10",
  "subtle",
  "zeroize",
 ]
@@ -3602,9 +3602,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.9"
+version = "0.103.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7df23109aa6c1567d1c575b9952556388da57401e4ace1d15f79eedad0d8f53"
+checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -4316,7 +4316,7 @@ dependencies = [
 
 [[package]]
 name = "taskbook-client"
-version = "1.15.1"
+version = "1.15.3"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -4343,7 +4343,7 @@ dependencies = [
 
 [[package]]
 name = "taskbook-common"
-version = "1.15.1"
+version = "1.15.3"
 dependencies = [
  "aes-gcm",
  "chrono",
@@ -4355,7 +4355,7 @@ dependencies = [
 
 [[package]]
 name = "taskbook-server"
-version = "1.15.1"
+version = "1.15.3"
 dependencies = [
  "argon2",
  "axum",
