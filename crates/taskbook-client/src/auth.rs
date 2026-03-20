@@ -106,6 +106,20 @@ fn finalize_login(creds: &Credentials) -> Result<()> {
     Ok(())
 }
 
+/// Save credentials and run post-login finalization (store key, enable sync, verify).
+fn save_and_finalize(creds: Credentials) -> Result<()> {
+    creds.save()?;
+    finalize_login(&creds)
+}
+
+/// Load stored credentials and build an authenticated API client.
+fn authenticated_client() -> Result<(Credentials, ApiClient)> {
+    let creds = Credentials::load()?
+        .ok_or_else(|| TaskbookError::Auth("not logged in — run `tb --login` first".to_string()))?;
+    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    Ok((creds, client))
+}
+
 fn prompt(message: &str) -> Result<String> {
     print!("{}", message);
     io::stdout()
@@ -167,14 +181,11 @@ pub fn register(
 
     let key_b64 = generate_and_print_key();
 
-    let creds = Credentials {
+    save_and_finalize(Credentials {
         server_url: server,
         token: resp.token,
         encryption_key: key_b64,
-    };
-    creds.save()?;
-
-    finalize_login(&creds)?;
+    })?;
 
     println!();
     println!("{}", "Registration successful!".green().bold());
@@ -220,14 +231,11 @@ pub fn login(
         resp.token
     };
 
-    let creds = Credentials {
+    save_and_finalize(Credentials {
         server_url: server,
         token: final_token,
         encryption_key: key,
-    };
-    creds.save()?;
-
-    finalize_login(&creds)?;
+    })?;
 
     Ok(())
 }
@@ -267,14 +275,11 @@ pub fn login_sso(server_url: Option<&str>, encryption_key: Option<&str>) -> Resu
         generate_and_print_key()
     };
 
-    let creds = Credentials {
+    save_and_finalize(Credentials {
         server_url: server,
         token: result.token,
         encryption_key: key,
-    };
-    creds.save()?;
-
-    finalize_login(&creds)?;
+    })?;
 
     Ok(())
 }
@@ -311,14 +316,11 @@ pub fn login_sso_manual(server_url: Option<&str>, encryption_key: Option<&str>) 
 
     let key = resolve_encryption_key(encryption_key, &server)?;
 
-    let creds = Credentials {
+    save_and_finalize(Credentials {
         server_url: server,
         token,
         encryption_key: key,
-    };
-    creds.save()?;
-
-    finalize_login(&creds)?;
+    })?;
 
     Ok(())
 }
@@ -341,14 +343,11 @@ pub fn set_token(
 
     let key = resolve_encryption_key(encryption_key, &server)?;
 
-    let creds = Credentials {
+    save_and_finalize(Credentials {
         server_url: server,
         token: tok,
         encryption_key: key,
-    };
-    creds.save()?;
-
-    finalize_login(&creds)?;
+    })?;
 
     Ok(())
 }
@@ -545,9 +544,7 @@ pub fn reset_encryption_key() -> Result<()> {
 // ---------------------------------------------------------------------------
 
 pub fn list_tokens() -> Result<()> {
-    let creds = Credentials::load()?
-        .ok_or_else(|| TaskbookError::Auth("not logged in — run `tb --login` first".to_string()))?;
-    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    let (_, client) = authenticated_client()?;
     let resp = client.list_tokens()?;
 
     if resp.tokens.is_empty() {
@@ -575,9 +572,7 @@ pub fn list_tokens() -> Result<()> {
 }
 
 pub fn create_token(name: &str) -> Result<()> {
-    let creds = Credentials::load()?
-        .ok_or_else(|| TaskbookError::Auth("not logged in — run `tb --login` first".to_string()))?;
-    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    let (_, client) = authenticated_client()?;
     let resp = client.create_token(name, None)?;
 
     println!("{}", "✅ Token created successfully!".green().bold());
@@ -597,9 +592,7 @@ pub fn create_token(name: &str) -> Result<()> {
 }
 
 pub fn revoke_token(name_or_id: &str) -> Result<()> {
-    let creds = Credentials::load()?
-        .ok_or_else(|| TaskbookError::Auth("not logged in — run `tb --login` first".to_string()))?;
-    let client = ApiClient::new(&creds.server_url, Some(&creds.token));
+    let (_, client) = authenticated_client()?;
 
     // If it looks like a UUID, use directly; otherwise look up by name.
     let token_id = if uuid_like(name_or_id) {
