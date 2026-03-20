@@ -39,7 +39,8 @@ pub struct ServerConfig {
 impl ServerConfig {
     pub fn load() -> Result<Self, String> {
         let db_host = require_env("TB_DB_HOST")?;
-        let db_port = std::env::var("TB_DB_PORT").unwrap_or_else(|_| constants::DEFAULT_DB_PORT.to_string());
+        let db_port =
+            std::env::var("TB_DB_PORT").unwrap_or_else(|_| constants::DEFAULT_DB_PORT.to_string());
         let db_name = require_env("TB_DB_NAME")?;
         let db_user = require_env("TB_DB_USER")?;
         let db_password = require_env("TB_DB_PASSWORD")?;

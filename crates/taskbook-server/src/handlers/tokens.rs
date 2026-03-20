@@ -71,9 +71,10 @@ pub async fn create_token(
 ) -> Result<(StatusCode, Json<CreateTokenResponse>)> {
     // Validate name
     if req.name.is_empty() || req.name.len() > constants::MAX_TOKEN_NAME_LEN {
-        return Err(ServerError::Validation(
-            format!("token name must be 1-{} characters", constants::MAX_TOKEN_NAME_LEN),
-        ));
+        return Err(ServerError::Validation(format!(
+            "token name must be 1-{} characters",
+            constants::MAX_TOKEN_NAME_LEN
+        )));
     }
     if !req
         .name
@@ -87,12 +88,11 @@ pub async fn create_token(
 
     if let Some(days) = req.expires_in_days {
         if !(constants::MIN_TOKEN_EXPIRY_DAYS..=constants::MAX_TOKEN_EXPIRY_DAYS).contains(&days) {
-            return Err(ServerError::Validation(
-                format!(
-                    "expires_in_days must be between {} and {}",
-                    constants::MIN_TOKEN_EXPIRY_DAYS, constants::MAX_TOKEN_EXPIRY_DAYS,
-                ),
-            ));
+            return Err(ServerError::Validation(format!(
+                "expires_in_days must be between {} and {}",
+                constants::MIN_TOKEN_EXPIRY_DAYS,
+                constants::MAX_TOKEN_EXPIRY_DAYS,
+            )));
         }
     }
 

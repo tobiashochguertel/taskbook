@@ -380,9 +380,10 @@ pub(crate) async fn create_session(
 /// Shared username validation: 1-64 chars, alphanumeric/underscore/dash/dot
 fn validate_username(username: &str) -> Result<()> {
     if username.is_empty() || username.len() > constants::MAX_USERNAME_LEN {
-        return Err(ServerError::Validation(
-            format!("username must be 1-{} characters", constants::MAX_USERNAME_LEN),
-        ));
+        return Err(ServerError::Validation(format!(
+            "username must be 1-{} characters",
+            constants::MAX_USERNAME_LEN
+        )));
     }
     if !username
         .chars()
@@ -406,9 +407,10 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
     validate_username(&req.username)?;
 
     if req.email.len() > constants::MAX_EMAIL_LEN {
-        return Err(ServerError::Validation(
-            format!("email must be at most {} characters", constants::MAX_EMAIL_LEN),
-        ));
+        return Err(ServerError::Validation(format!(
+            "email must be at most {} characters",
+            constants::MAX_EMAIL_LEN
+        )));
     }
 
     if !req.email.contains('@') || !req.email.contains('.') {
@@ -418,15 +420,17 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
     }
 
     if req.password.len() < constants::MIN_PASSWORD_LEN {
-        return Err(ServerError::Validation(
-            format!("password must be at least {} characters", constants::MIN_PASSWORD_LEN),
-        ));
+        return Err(ServerError::Validation(format!(
+            "password must be at least {} characters",
+            constants::MIN_PASSWORD_LEN
+        )));
     }
 
     if req.password.len() > constants::MAX_PASSWORD_LEN {
-        return Err(ServerError::Validation(
-            format!("password must be at most {} characters", constants::MAX_PASSWORD_LEN),
-        ));
+        return Err(ServerError::Validation(format!(
+            "password must be at most {} characters",
+            constants::MAX_PASSWORD_LEN
+        )));
     }
 
     Ok(())

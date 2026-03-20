@@ -193,7 +193,9 @@ pub async fn build(
         .route("/api/v1/items/archive", put(items::put_archive))
         .route("/api/v1/events", get(events::events))
         .route("/metrics", get(metrics_handler))
-        .layer(RequestBodyLimitLayer::new(constants::MAX_REQUEST_BODY_BYTES))
+        .layer(RequestBodyLimitLayer::new(
+            constants::MAX_REQUEST_BODY_BYTES,
+        ))
         .layer(cors)
         .layer(HttpMetricsLayer);
 
