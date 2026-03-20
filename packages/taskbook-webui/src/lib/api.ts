@@ -171,10 +171,14 @@ export const api = {
     request<TokenListResponse>("/api/v1/me/tokens", {}, token),
 
   createToken: (token: string, name: string, expiresInDays?: number) =>
-    request<CreateTokenResponse>("/api/v1/me/tokens", {
-      method: "POST",
-      body: JSON.stringify({ name, expires_in_days: expiresInDays ?? null }),
-    }, token),
+    request<CreateTokenResponse>(
+      "/api/v1/me/tokens",
+      {
+        method: "POST",
+        body: JSON.stringify({ name, expires_in_days: expiresInDays ?? null }),
+      },
+      token,
+    ),
 
   revokeToken: (token: string, tokenId: string) =>
     request<void>(`/api/v1/me/tokens/${tokenId}`, { method: "DELETE" }, token),

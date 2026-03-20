@@ -35,11 +35,14 @@ export function isNote(item: StorageItem): item is NoteItem {
 }
 
 /** Normalize legacy items: remap old field names and ensure required arrays exist */
-export function normalizeItem<T extends StorageItem>(raw: Record<string, unknown>): T {
+export function normalizeItem<T extends StorageItem>(
+  raw: Record<string, unknown>,
+): T {
   const item = { ...raw } as Record<string, unknown>;
   if ("id" in item && !("_id" in item)) item._id = item.id;
   if ("date" in item && !("_date" in item)) item._date = item.date;
-  if ("timestamp" in item && !("_timestamp" in item)) item._timestamp = item.timestamp;
+  if ("timestamp" in item && !("_timestamp" in item))
+    item._timestamp = item.timestamp;
   delete item.id;
   delete item.date;
   delete item.timestamp;

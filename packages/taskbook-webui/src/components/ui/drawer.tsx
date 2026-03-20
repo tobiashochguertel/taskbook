@@ -152,7 +152,13 @@ export function Drawer({
                   >
                     {isRenaming ? (
                       <div className="flex items-center gap-2 flex-1 px-4 py-2">
-                        <Folder size={16} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
+                        <Folder
+                          size={16}
+                          style={{
+                            color: "var(--color-accent)",
+                            flexShrink: 0,
+                          }}
+                        />
                         <input
                           type="text"
                           value={renameValue}
@@ -165,7 +171,11 @@ export function Drawer({
                           }}
                           autoFocus
                           onKeyDown={(e) => {
-                            if (e.key === "Enter" && renameValue.trim() && renameValue.trim() !== board) {
+                            if (
+                              e.key === "Enter" &&
+                              renameValue.trim() &&
+                              renameValue.trim() !== board
+                            ) {
                               onRenameBoard(board, renameValue.trim());
                               setRenamingBoard(null);
                               setRenameValue("");
@@ -179,23 +189,39 @@ export function Drawer({
                         <button
                           type="button"
                           onClick={() => {
-                            if (renameValue.trim() && renameValue.trim() !== board) {
+                            if (
+                              renameValue.trim() &&
+                              renameValue.trim() !== board
+                            ) {
                               onRenameBoard(board, renameValue.trim());
                             }
                             setRenamingBoard(null);
                             setRenameValue("");
                           }}
                           className="flex items-center justify-center cursor-pointer border-none rounded-md"
-                          style={{ color: "var(--color-success)", background: "none", width: 28, height: 28 }}
+                          style={{
+                            color: "var(--color-success)",
+                            background: "none",
+                            width: 28,
+                            height: 28,
+                          }}
                           title="Confirm rename"
                         >
                           <Check size={14} />
                         </button>
                         <button
                           type="button"
-                          onClick={() => { setRenamingBoard(null); setRenameValue(""); }}
+                          onClick={() => {
+                            setRenamingBoard(null);
+                            setRenameValue("");
+                          }}
                           className="flex items-center justify-center cursor-pointer border-none rounded-md"
-                          style={{ color: "var(--color-text-muted)", background: "none", width: 28, height: 28 }}
+                          style={{
+                            color: "var(--color-text-muted)",
+                            background: "none",
+                            width: 28,
+                            height: 28,
+                          }}
                           title="Cancel rename"
                         >
                           <X size={14} />
@@ -254,7 +280,10 @@ export function Drawer({
                           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1 transition-opacity">
                             <button
                               type="button"
-                              onClick={() => { setRenamingBoard(board); setRenameValue(board); }}
+                              onClick={() => {
+                                setRenamingBoard(board);
+                                setRenameValue(board);
+                              }}
                               className="flex items-center justify-center cursor-pointer border-none rounded-md"
                               style={{
                                 color: "var(--color-text-muted)",

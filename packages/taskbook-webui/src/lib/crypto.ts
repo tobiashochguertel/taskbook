@@ -47,7 +47,9 @@ function parseKeyBytes(key: string): Uint8Array {
 export async function deriveKey(encryptionKey: string): Promise<CryptoKey> {
   const keyData = parseKeyBytes(encryptionKey);
   if (keyData.length !== 32) {
-    throw new Error(`Invalid key length: expected 32 bytes, got ${keyData.length}`);
+    throw new Error(
+      `Invalid key length: expected 32 bytes, got ${keyData.length}`,
+    );
   }
   return crypto.subtle.importKey("raw", keyData, "AES-GCM", false, [
     "encrypt",

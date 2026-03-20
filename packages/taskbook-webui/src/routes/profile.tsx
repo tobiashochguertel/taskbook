@@ -1,8 +1,8 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../lib/auth";
-import { api, type TokenInfo } from "../lib/api";
 import { TaskbookLogo } from "../components/ui/taskbook-logo";
+import { api, type TokenInfo } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 export function ProfilePage() {
   const { token, logout } = useAuth();
@@ -29,7 +29,11 @@ export function ProfilePage() {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      api.createToken(token!, newName, expiryDays ? parseInt(expiryDays) : undefined),
+      api.createToken(
+        token!,
+        newName,
+        expiryDays ? parseInt(expiryDays) : undefined,
+      ),
     onSuccess: (data) => {
       setCreatedToken(data.token);
       setNewName("");
@@ -76,8 +80,11 @@ export function ProfilePage() {
   const formatDate = (iso: string | null) => {
     if (!iso) return "Never";
     return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric", month: "short", day: "numeric",
-      hour: "2-digit", minute: "2-digit",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -153,7 +160,10 @@ export function ProfilePage() {
                 >
                   Username
                 </span>
-                <span className="text-sm" style={{ color: "var(--color-text)" }}>
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--color-text)" }}
+                >
                   {user.data.username}
                 </span>
               </div>
@@ -164,7 +174,10 @@ export function ProfilePage() {
                 >
                   Email
                 </span>
-                <span className="text-sm" style={{ color: "var(--color-text)" }}>
+                <span
+                  className="text-sm"
+                  style={{ color: "var(--color-text)" }}
+                >
                   {user.data.email}
                 </span>
               </div>
@@ -203,8 +216,8 @@ export function ProfilePage() {
             className="text-sm mb-4"
             style={{ color: "var(--color-text-secondary)" }}
           >
-            Tokens are used to authenticate with the API and MCP server.
-            They are shown only once at creation — store them securely.
+            Tokens are used to authenticate with the API and MCP server. They
+            are shown only once at creation — store them securely.
           </p>
 
           {/* Token created banner */}
@@ -216,7 +229,10 @@ export function ProfilePage() {
                 borderColor: "var(--color-success, #22c55e)",
               }}
             >
-              <p className="text-sm font-semibold mb-2" style={{ color: "var(--color-success, #22c55e)" }}>
+              <p
+                className="text-sm font-semibold mb-2"
+                style={{ color: "var(--color-success, #22c55e)" }}
+              >
                 ✅ Token created — copy it now!
               </p>
               <div className="flex items-center gap-2">
@@ -327,7 +343,10 @@ export function ProfilePage() {
                   </button>
                 </div>
                 {createMutation.isError && (
-                  <p className="text-xs" style={{ color: "var(--color-danger, #ef4444)" }}>
+                  <p
+                    className="text-xs"
+                    style={{ color: "var(--color-danger, #ef4444)" }}
+                  >
                     {(createMutation.error as Error).message}
                   </p>
                 )}
@@ -337,11 +356,17 @@ export function ProfilePage() {
 
           {/* Token list */}
           {tokens.isLoading ? (
-            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            <p
+              className="text-sm"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
               Loading tokens...
             </p>
           ) : tokens.data?.tokens.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            <p
+              className="text-sm"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
               No tokens yet. Create one to use with the CLI or MCP server.
             </p>
           ) : (

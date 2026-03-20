@@ -208,9 +208,7 @@ export function ProfileMenu({
               style={{ color: "var(--color-text-muted)", opacity: 0.5 }}
             >
               Taskbook{" "}
-              {typeof __APP_VERSION__ !== "undefined"
-                ? __APP_VERSION__
-                : "dev"}
+              {typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}
             </span>
           </div>
 

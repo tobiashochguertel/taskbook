@@ -355,31 +355,29 @@ export function SettingsDialog({
               className="flex border-b"
               style={{ borderColor: "var(--color-border)" }}
             >
-              {(["general", "security"] as SettingsTab[]).map(
-                (tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className="flex-1 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer border-none relative"
-                    style={{
-                      background: "none",
-                      color:
-                        activeTab === tab
-                          ? "var(--color-accent)"
-                          : "var(--color-text-muted)",
-                    }}
-                  >
-                    {tab}
-                    {activeTab === tab && (
-                      <div
-                        className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full"
-                        style={{ backgroundColor: "var(--color-accent)" }}
-                      />
-                    )}
-                  </button>
-                ),
-              )}
+              {(["general", "security"] as SettingsTab[]).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className="flex-1 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer border-none relative"
+                  style={{
+                    background: "none",
+                    color:
+                      activeTab === tab
+                        ? "var(--color-accent)"
+                        : "var(--color-text-muted)",
+                  }}
+                >
+                  {tab}
+                  {activeTab === tab && (
+                    <div
+                      className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full"
+                      style={{ backgroundColor: "var(--color-accent)" }}
+                    />
+                  )}
+                </button>
+              ))}
             </div>
             <div className="px-6 py-5 space-y-6">
               {activeTab === "general" && generalSection}
