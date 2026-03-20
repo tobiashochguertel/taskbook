@@ -4,6 +4,7 @@
  */
 
 import type { OAuthConfig, OAuthEndpoints } from "./config.js";
+import { createBasicAuthHeader } from "./utils.js";
 
 export interface AuthInfo {
   type: "pat" | "oauth";
@@ -65,15 +66,14 @@ async function verifyOAuthToken(
   endpoints: OAuthEndpoints,
 ): Promise<AuthInfo | null> {
   try {
-    const credentials = Buffer.from(
-      `${config.clientId}:${config.clientSecret}`,
-    ).toString("base64");
-
     const resp = await fetch(endpoints.introspection, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${credentials}`,
+        Authorization: createBasicAuthHeader(
+          config.clientId,
+          config.clientSecret,
+        ),
       },
       body: new URLSearchParams({ token }).toString(),
     });
