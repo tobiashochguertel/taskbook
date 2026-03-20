@@ -130,6 +130,9 @@ describe("MCP tool operations", () => {
     const toolNames = tools.map((t) => t.name);
     expect(toolNames).toContain("create_task");
     expect(toolNames).toContain("list_tasks");
+    expect(toolNames).toContain("get_item");
+    expect(toolNames).toContain("get_board");
+    expect(toolNames).toContain("list_archive");
   });
 
   test("Create a task via MCP", async () => {

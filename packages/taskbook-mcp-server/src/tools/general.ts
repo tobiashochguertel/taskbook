@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { TaskbookClient } from "../client/api.js";
+import type { Task, TaskbookClient } from "../client/api.js";
 
 export function registerGeneralTools(
   server: McpServer,
@@ -126,6 +126,109 @@ export function registerGeneralTools(
         `Tasks: ${tasks.length} total (${done} done, ${pending} pending)`,
         `Notes: ${notes}`,
       ];
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    },
+  );
+
+  server.tool(
+    "get_item",
+    "Get a specific task or note by its ID",
+    {
+      item_id: z.number().describe("The item ID to retrieve"),
+    },
+    async ({ item_id }) => {
+      const items = await getClient().getItems();
+      const item = items[String(item_id)];
+      if (!item) {
+        return {
+          content: [{ type: "text", text: `Item #${item_id} not found.` }],
+          isError: true,
+        };
+      }
+      const type = item._isTask ? "Task" : "Note";
+      const lines = [
+        `**${type} #${item._id}**`,
+        `Description: ${item.description}`,
+        `Board: @${item.boards.join(", @")}`,
+        `Starred: ${item.isStarred ? "⭐ yes" : "no"}`,
+      ];
+      if (item._isTask) {
+        const task = item as Task;
+        lines.push(`Status: ${task.isComplete ? "✔ complete" : task.inProgress ? "⏳ in-progress" : "☐ pending"}`);
+        lines.push(`Priority: P${task.priority}`);
+      }
+      if (item.tags && item.tags.length > 0) {
+        lines.push(`Tags: ${item.tags.map((t: string) => `+${t}`).join(" ")}`);
+      }
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    },
+  );
+
+  server.tool(
+    "get_board",
+    "Get all tasks and notes on a specific board",
+    {
+      board: z.string().describe("Board name (e.g. 'My Board')"),
+    },
+    async ({ board }) => {
+      const client = getClient();
+      const boardName = board.replace(/^@+/, "");
+      const [tasks, notes] = await Promise.all([
+        client.listTasks(boardName),
+        client.listNotes(boardName),
+      ]);
+      if (tasks.length === 0 && notes.length === 0) {
+        return {
+          content: [{ type: "text", text: `Board "@${boardName}" is empty or does not exist.` }],
+        };
+      }
+      const lines = [`**@${boardName}** (${tasks.length} tasks, ${notes.length} notes)`, ""];
+      if (tasks.length > 0) {
+        const pending = tasks.filter((t) => !t.isComplete);
+        const done = tasks.filter((t) => t.isComplete);
+        if (pending.length > 0) {
+          lines.push("**Pending:**");
+          for (const t of pending) {
+            const status = t.inProgress ? "⏳" : "☐";
+            const prio = t.priority > 1 ? ` [P${t.priority}]` : "";
+            const star = t.isStarred ? " ⭐" : "";
+            lines.push(`  ${status} ${t._id}. ${t.description}${prio}${star}`);
+          }
+        }
+        if (done.length > 0) {
+          lines.push("**Completed:**");
+          for (const t of done) {
+            lines.push(`  ✔ ${t._id}. ${t.description}`);
+          }
+        }
+      }
+      if (notes.length > 0) {
+        lines.push("**Notes:**");
+        for (const n of notes) {
+          lines.push(`  📝 ${n._id}. ${n.description}`);
+        }
+      }
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    },
+  );
+
+  server.tool(
+    "list_archive",
+    "List all archived tasks and notes",
+    {},
+    async () => {
+      const items = await getClient().getArchive();
+      const all = Object.values(items);
+      if (all.length === 0) {
+        return {
+          content: [{ type: "text", text: "Archive is empty." }],
+        };
+      }
+      const lines = [`**Archive** (${all.length} items)`, ""];
+      for (const item of all) {
+        const type = item._isTask ? (item.isComplete ? "✔" : "☐") : "📝";
+        lines.push(`  ${type} ${item._id}. ${item.description}  (@${item.boards.join(", @")})`);
+      }
       return { content: [{ type: "text", text: lines.join("\n") }] };
     },
   );
