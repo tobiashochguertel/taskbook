@@ -10,14 +10,15 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AllBoardsView } from "../components/ui/all-boards-view";
 import { CommandPalette } from "../components/ui/command-palette";
-import { ConnectionIndicator } from "../components/ui/connection-indicator";
 import { CreateItemSheet } from "../components/ui/create-item-sheet";
+import { DashboardLayout } from "../components/ui/dashboard-layout";
 import { Drawer } from "../components/ui/drawer";
 import { Fab } from "../components/ui/fab";
 import { FooterBar, type ViewMode } from "../components/ui/footer-bar";
 import { HelpModal } from "../components/ui/help-modal";
 import { type MobileTab, MobileTabs } from "../components/ui/mobile-tabs";
 import { ProfileMenu } from "../components/ui/profile-menu";
+import { RadialActionMenu } from "../components/ui/radial-action-menu";
 import { SettingsDialog } from "../components/ui/settings-dialog";
 import { SyncStatusButton } from "../components/ui/sync-status-button";
 import { TaskCard } from "../components/ui/task-card";
@@ -666,18 +667,33 @@ export function BoardPage() {
           </main>
         )
       ) : (
-        /* ── Dashboard: placeholder for widget layout ── */
+        /* ── Dashboard: widget layout ── */
         <main
-          className="flex-1 overflow-y-auto p-4"
-          style={{ paddingBottom: 44 }}
+          className="flex-1 overflow-y-auto"
+          style={{ paddingBottom: isMobile ? tabBarHeight + 80 : 44 }}
         >
-          <div
-            className="flex items-center justify-center h-full text-sm"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Dashboard view — widget layout coming soon. Press Tab to switch
-            views.
-          </div>
+          <DashboardLayout
+            items={displayItems}
+            boards={boards}
+            onAddItem={(description, isTaskItem, board) => {
+              if (isTaskItem) {
+                createTask(description, board, 1);
+              } else {
+                createNote(description, board);
+              }
+            }}
+            onToggleComplete={toggleComplete}
+            onToggleStar={toggleStar}
+            onDelete={deleteItem}
+            onEdit={editItem}
+            onToggleProgress={toggleProgress}
+            onChangePriority={changePriority}
+            onMoveToBoard={moveToBoard}
+            onUpdateTags={updateTags}
+            onArchive={archiveItem}
+            archiveItems={archiveList}
+            onRestoreItem={restoreItem}
+          />
         </main>
       )}
 
@@ -701,11 +717,27 @@ export function BoardPage() {
         />
       )}
 
-      {/* FAB */}
-      <Fab
-        onClick={() => setShowCreateSheet(true)}
-        bottomOffset={tabBarHeight}
-      />
+      {/* FAB (desktop only) / Radial action menu (touch/mobile) */}
+      {isMobile ? (
+        <RadialActionMenu
+          onNewTask={() => setShowCreateSheet(true)}
+          onNewNote={() => setShowCreateSheet(true)}
+          onSearch={() => setShowCommandPalette(true)}
+          onSync={() => refetch()}
+          onViewBoard={() => setViewMode("board")}
+          onViewAllBoards={() => setViewMode("all-boards")}
+          onViewDashboard={() => setViewMode("dashboard")}
+          onOpenArchive={() => setShowArchiveView(true)}
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenHelp={() => setShowHelp(true)}
+          bottomOffset={tabBarHeight}
+        />
+      ) : (
+        <Fab
+          onClick={() => setShowCreateSheet(true)}
+          bottomOffset={tabBarHeight}
+        />
+      )}
 
       {/* Create item bottom sheet */}
       <CreateItemSheet

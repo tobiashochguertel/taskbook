@@ -28,6 +28,7 @@ interface TaskCardProps {
   onUpdateTags?: (tags: string[]) => void;
   onArchive?: () => void;
   boards?: string[];
+  compact?: boolean;
 }
 
 export function TaskCard({
@@ -42,6 +43,7 @@ export function TaskCard({
   onMoveToBoard,
   onArchive,
   boards,
+  compact,
 }: TaskCardProps) {
   const { settings, isMobile } = useSettings();
   const task = isTask(item);
@@ -178,7 +180,7 @@ export function TaskCard({
     navigator.clipboard.writeText(item.description);
   }, [item.description]);
 
-  const py = settings.compactCards ? "py-1.5" : "py-3";
+  const py = compact ? "py-1" : settings.compactCards ? "py-1.5" : "py-3";
   const inProgress = task && item.inProgress;
 
   return (
@@ -217,7 +219,7 @@ export function TaskCard({
       )}
 
       <div
-        className={`flex items-start gap-3 px-3 ${py} transition-colors group cursor-default relative`}
+        className={`flex items-start ${compact ? "gap-2 px-2 text-xs" : "gap-3 px-3"} ${py} transition-colors group cursor-default relative`}
         style={{
           backgroundColor: "var(--color-surface)",
           transform: `translateX(${swipeX}px)`,

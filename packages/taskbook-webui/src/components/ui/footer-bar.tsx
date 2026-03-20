@@ -1,6 +1,5 @@
 import {
   getFooterShortcuts,
-  getMobileShortcuts,
   type KeyboardShortcut,
 } from "../../hooks/useKeyboardShortcuts";
 import { useSettings } from "../../lib/settings";
@@ -28,9 +27,10 @@ export function FooterBar({
 }: FooterBarProps) {
   const { isMobile } = useSettings();
 
-  const visibleShortcuts = isMobile
-    ? getMobileShortcuts(shortcuts)
-    : getFooterShortcuts(shortcuts);
+  // On mobile/touch screens, hide footer bar — radial menu provides actions
+  if (isMobile) return null;
+
+  const visibleShortcuts = getFooterShortcuts(shortcuts);
 
   return (
     <footer

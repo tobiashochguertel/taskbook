@@ -1,0 +1,68 @@
+/*
+ * Theme overrides for @spaceymonk/react-radial-menu
+ * Maps library CSS variables to our design-token CSS variables.
+ */
+
+/* ── Base theme mapping ─────────────────────────────────────── */
+:root {
+  --__reactRadialMenu__menu-bgColor: var(--color-surface);
+  --__reactRadialMenu__item-color: var(--color-text);
+  --__reactRadialMenu__activeItem-color: var(--color-bg);
+  --__reactRadialMenu__activeItem-bgColor: var(--color-accent);
+  --__reactRadialMenu__separator-color: var(--color-border);
+  --__reactRadialMenu__arrow-color: var(--color-text-muted);
+  --__reactRadialMenu__activeArrow-color: var(--color-bg);
+  --__reactRadialMenu__zIndex: 41;
+  --__reactRadialMenu__animation-delay: 150ms;
+}
+
+/* ── Menu container ─────────────────────────────────────────── */
+.__rrm-menu {
+  font-family: var(--font-mono);
+  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.35));
+}
+
+/* ── Item content – make icons + labels legible ─────────────── */
+.__rrm-content {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  line-height: 1.2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Submenu arrow indicator ────────────────────────────────── */
+.__rrm-arrow {
+  opacity: 0.7;
+}
+
+.__rrm-active .__rrm-arrow {
+  opacity: 1;
+}
+
+/* ── Return / back button in submenus ───────────────────────── */
+.__rrm-return {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ── Light-theme specifics ──────────────────────────────────── */
+[data-theme="light"] {
+  --__reactRadialMenu__menu-bgColor: var(--color-surface);
+  --__reactRadialMenu__separator-color: var(--color-border);
+  --__reactRadialMenu__item-color: var(--color-text);
+  --__reactRadialMenu__activeItem-bgColor: var(--color-accent);
+  --__reactRadialMenu__activeItem-color: #ffffff;
+}
+
+/* ── Backdrop behind the radial menu ────────────────────────── */
+.radial-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+}

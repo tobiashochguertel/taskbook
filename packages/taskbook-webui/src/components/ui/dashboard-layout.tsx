@@ -11,6 +11,9 @@ import {
 import { useDashboardLayout } from "../../hooks/useDashboardLayout";
 import type { StorageItem } from "../../lib/types";
 import type { WidgetType } from "../../lib/widgets";
+import { AllBoardsWidget } from "../widgets/all-boards-widget";
+import { ArchiveWidget } from "../widgets/archive-widget";
+import { BoardWidget } from "../widgets/board-widget";
 import { QuickAddWidget } from "../widgets/quick-add-widget";
 import { StatsWidget } from "../widgets/stats-widget";
 import { TimelineWidget } from "../widgets/timeline-widget";
@@ -25,9 +28,35 @@ interface DashboardProps {
   items: StorageItem[];
   boards: string[];
   onAddItem?: (description: string, isTask: boolean, board: string) => void;
+  onToggleComplete?: (item: StorageItem) => void;
+  onToggleStar?: (item: StorageItem) => void;
+  onDelete?: (item: StorageItem) => void;
+  onEdit?: (item: StorageItem, newDescription: string) => void;
+  onToggleProgress?: (item: StorageItem) => void;
+  onChangePriority?: (item: StorageItem, newPriority: number) => void;
+  onMoveToBoard?: (item: StorageItem, targetBoard: string) => void;
+  onUpdateTags?: (item: StorageItem, newTags: string[]) => void;
+  onArchive?: (item: StorageItem) => void;
+  archiveItems?: StorageItem[];
+  onRestoreItem?: (item: StorageItem) => void;
 }
 
-export function DashboardLayout({ items, boards, onAddItem }: DashboardProps) {
+export function DashboardLayout({
+  items,
+  boards,
+  onAddItem,
+  onToggleComplete,
+  onToggleStar,
+  onDelete,
+  onEdit,
+  onToggleProgress,
+  onChangePriority,
+  onMoveToBoard,
+  onUpdateTags,
+  onArchive,
+  archiveItems,
+  onRestoreItem,
+}: DashboardProps) {
   const { layout, updateLayouts, addWidget, removeWidget, resetToDefault } =
     useDashboardLayout();
 
@@ -68,21 +97,30 @@ export function DashboardLayout({ items, boards, onAddItem }: DashboardProps) {
     switch (config.type) {
       case "board":
         return (
-          <div
-            className="flex items-center justify-center h-full text-sm"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Board: {(config.props?.boardName as string) ?? "Default"}
-          </div>
+          <BoardWidget
+            items={items}
+            boardName={
+              (config.props?.boardName as string) ?? boards[0] ?? "My Board"
+            }
+            onToggleComplete={onToggleComplete ?? (() => {})}
+            onToggleStar={onToggleStar ?? (() => {})}
+          />
         );
       case "all-boards":
         return (
-          <div
-            className="flex items-center justify-center h-full text-sm"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            All Boards View (TUI)
-          </div>
+          <AllBoardsWidget
+            items={items}
+            boards={boards}
+            onToggleComplete={onToggleComplete ?? (() => {})}
+            onToggleStar={onToggleStar ?? (() => {})}
+            onDelete={onDelete ?? (() => {})}
+            onEdit={onEdit ?? (() => {})}
+            onToggleProgress={onToggleProgress ?? (() => {})}
+            onChangePriority={onChangePriority ?? (() => {})}
+            onMoveToBoard={onMoveToBoard ?? (() => {})}
+            onUpdateTags={onUpdateTags ?? (() => {})}
+            onArchive={onArchive ?? (() => {})}
+          />
         );
       case "stats":
         return <StatsWidget items={items} />;
@@ -94,12 +132,7 @@ export function DashboardLayout({ items, boards, onAddItem }: DashboardProps) {
         );
       case "archive":
         return (
-          <div
-            className="flex items-center justify-center h-full text-sm"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Archive Viewer
-          </div>
+          <ArchiveWidget items={archiveItems ?? []} onRestore={onRestoreItem} />
         );
       default:
         return null;
