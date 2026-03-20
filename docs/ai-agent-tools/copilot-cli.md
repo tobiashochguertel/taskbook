@@ -33,6 +33,54 @@ Config file: `~/.copilot/mcp-config.json`
 
 ## HTTP Transport (Remote Server)
 
+### Option A: OAuth (Automatic — Recommended)
+
+When the MCP server has OAuth enabled, Copilot CLI handles authentication
+automatically via RFC 8414 discovery and RFC 7591 dynamic client registration.
+
+```json
+{
+  "mcpServers": {
+    "taskbook": {
+      "type": "http",
+      "url": "https://your-mcp-server.example.com/mcp"
+    }
+  }
+}
+```
+
+Copilot CLI will:
+1. Discover OAuth endpoints via `/.well-known/oauth-authorization-server`
+2. Register itself as a client via `/oauth/register`
+3. Open a browser for SSO login (Authelia)
+4. Exchange the authorization code for an access token
+
+### Option B: Personal Access Token (Headless)
+
+For headless environments (CI, scripts, SSH sessions without a browser),
+use a PAT in the `Authorization` header:
+
+```json
+{
+  "mcpServers": {
+    "taskbook": {
+      "type": "http",
+      "url": "https://your-mcp-server.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer tb_YOUR_PERSONAL_ACCESS_TOKEN"
+      }
+    }
+  }
+}
+```
+
+Generate a PAT via the WebUI (Profile → Tokens → Create Token) or
+via the CLI (`tb token create --name "copilot-cli"`).
+
+### Option C: Static Access Token (Legacy)
+
+If the server uses `TB_MCP_ACCESS_TOKEN`, pass it directly:
+
 ```json
 {
   "mcpServers": {
@@ -54,7 +102,7 @@ Config file: `~/.copilot/mcp-config.json`
 | `type` | ✅ | `"http"` for remote server |
 | `url` | ✅ | MCP endpoint URL (must end in `/mcp`) |
 | `tools` | — | Tool filter: `["*"]` for all, or list specific tools |
-| `headers` | — | HTTP headers. Set `Authorization` when `TB_MCP_ACCESS_TOKEN` is configured |
+| `headers` | — | HTTP headers. Only needed for PAT/legacy auth (Options B/C) |
 | `source` | — | Set by Copilot CLI to track where the config came from (`"user"` = manual) |
 
 ## Tool Selection
@@ -82,5 +130,6 @@ Expected: All 15 taskbook tools are discovered and listed.
 - [Environment Variables](../guides/mcp/env-variables.md) — all `TB_*` variables
 - [Tools Reference](../guides/mcp/tools-reference.md) — all 15 MCP tools
 - [Authelia SSO Guide](../guides/auth/authelia-sso.md) — OIDC setup
+- [MCP OAuth Setup](../guides/auth/mcp-oauth-setup.md) — OAuth server configuration
 - [Copilot CLI Documentation](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-copilot-cli)
 - `copilot help config`
