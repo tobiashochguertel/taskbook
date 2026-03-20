@@ -157,6 +157,10 @@ pub async fn put_archive(
 const MAX_ITEMS_PER_CATEGORY: usize = 10_000;
 
 /// Replace all items for a user (active or archived) with the provided set.
+///
+/// Uses a PostgreSQL advisory lock per user to serialize concurrent replace
+/// operations, preventing duplicate-key violations from racing transactions.
+/// Items are upserted (INSERT ... ON CONFLICT DO UPDATE) for extra safety.
 async fn replace_items(
     pool: &sqlx::PgPool,
     user_id: uuid::Uuid,
@@ -170,47 +174,77 @@ async fn replace_items(
         )));
     }
 
-    // Validate individual item sizes
+    // Pre-decode and validate all items BEFORE starting the transaction
+    // to minimize time spent holding the advisory lock.
+    let mut decoded: Vec<(&str, Vec<u8>, Vec<u8>)> = Vec::with_capacity(items.len());
     for (key, item) in items {
         if key.len() > 64 {
             return Err(ServerError::Validation(
                 "item key must be at most 64 characters".to_string(),
             ));
         }
-        // Base64-decoded nonce should be 12 bytes (16 chars in base64)
         if item.nonce.len() > 24 {
             return Err(ServerError::Validation("invalid nonce size".to_string()));
         }
-        // Limit individual item data to 1 MB (base64-encoded)
         if item.data.len() > 1_400_000 {
             return Err(ServerError::Validation("item data too large".to_string()));
         }
-    }
-
-    let mut tx = pool.begin().await.map_err(ServerError::Database)?;
-
-    sqlx::query("DELETE FROM items WHERE user_id = $1 AND archived = $2")
-        .bind(user_id)
-        .bind(archived)
-        .execute(&mut *tx)
-        .await
-        .map_err(ServerError::Database)?;
-
-    for (key, item) in items {
         let data = base64::engine::general_purpose::STANDARD
             .decode(&item.data)
             .map_err(|e| ServerError::Validation(format!("invalid base64 data: {e}")))?;
         let nonce = base64::engine::general_purpose::STANDARD
             .decode(&item.nonce)
             .map_err(|e| ServerError::Validation(format!("invalid base64 nonce: {e}")))?;
+        decoded.push((key.as_str(), data, nonce));
+    }
 
+    let mut tx = pool.begin().await.map_err(ServerError::Database)?;
+
+    // Acquire a per-user advisory lock (released automatically on commit/rollback).
+    // This serializes concurrent replace_items calls for the same user, preventing
+    // the race where two DELETEs see no rows then both try to INSERT the same keys.
+    let lock_key = user_id.as_u128() as i64;
+    sqlx::query("SELECT pg_advisory_xact_lock($1)")
+        .bind(lock_key)
+        .execute(&mut *tx)
+        .await
+        .map_err(ServerError::Database)?;
+
+    // Collect the item_keys we're about to upsert
+    let new_keys: Vec<&str> = decoded.iter().map(|(k, _, _)| *k).collect();
+
+    // Delete items NOT in the new set (handles removals)
+    if new_keys.is_empty() {
+        sqlx::query("DELETE FROM items WHERE user_id = $1 AND archived = $2")
+            .bind(user_id)
+            .bind(archived)
+            .execute(&mut *tx)
+            .await
+            .map_err(ServerError::Database)?;
+    } else {
         sqlx::query(
-            "INSERT INTO items (user_id, item_key, data, nonce, archived) VALUES ($1, $2, $3, $4, $5)",
+            "DELETE FROM items WHERE user_id = $1 AND archived = $2 AND item_key != ALL($3)",
+        )
+        .bind(user_id)
+        .bind(archived)
+        .bind(&new_keys)
+        .execute(&mut *tx)
+        .await
+        .map_err(ServerError::Database)?;
+    }
+
+    // Upsert each item — handles both new and existing items without conflict.
+    for (key, data, nonce) in &decoded {
+        sqlx::query(
+            "INSERT INTO items (user_id, item_key, data, nonce, archived)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (user_id, item_key, archived)
+             DO UPDATE SET data = EXCLUDED.data, nonce = EXCLUDED.nonce, updated_at = NOW()",
         )
         .bind(user_id)
         .bind(key)
-        .bind(&data)
-        .bind(&nonce)
+        .bind(data)
+        .bind(nonce)
         .bind(archived)
         .execute(&mut *tx)
         .await
