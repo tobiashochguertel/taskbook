@@ -25,6 +25,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
+    "@spaceymonk/react-radial-menu": "^2.1.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-router": "^1.167.0",
