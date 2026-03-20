@@ -209,6 +209,7 @@ export function RadialActionMenu({
       {isOpen && (
         // biome-ignore lint/a11y/noStaticElementInteractions: backdrop needs click to dismiss
         <div
+          data-testid="radial-menu-backdrop"
           className="radial-menu-backdrop"
           onClick={closeMenu}
           onKeyDown={(e) => {
@@ -219,6 +220,7 @@ export function RadialActionMenu({
 
       {/* Radial menu (SVG overlay) */}
       <div
+        data-testid="radial-menu"
         className={clickedItem ? "radial-menu-item-flash" : ""}
         style={{
           position: "fixed",
@@ -302,6 +304,7 @@ export function RadialActionMenu({
         whileTap={{ scale: 0.9 }}
         aria-label={isOpen ? "Close action menu" : "Open action menu"}
         aria-expanded={isOpen}
+        data-testid="radial-menu-trigger"
       >
         <AnimatePresence mode="wait" initial={false}>
           {isOpen ? (

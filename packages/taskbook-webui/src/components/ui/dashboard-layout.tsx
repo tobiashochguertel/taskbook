@@ -140,9 +140,10 @@ export function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-col h-full" ref={containerRef}>
+    <div data-testid="dashboard-layout" className="flex flex-col h-full" ref={containerRef}>
       {/* Toolbar */}
       <div
+        data-testid="dashboard-toolbar"
         className="flex items-center gap-2 px-4 py-2 shrink-0"
         style={{ borderBottom: "1px solid var(--color-border)" }}
       >
@@ -158,6 +159,7 @@ export function DashboardLayout({
             border: "1px solid var(--color-border)",
           }}
           aria-label={isEditing ? "Lock layout" : "Edit layout"}
+          data-testid="dashboard-edit-toggle"
         >
           {isEditing ? <Unlock size={14} /> : <Lock size={14} />}
           <span>{isEditing ? "Editing" : "Locked"}</span>
@@ -175,6 +177,7 @@ export function DashboardLayout({
                 border: "1px solid var(--color-border)",
               }}
               aria-label="Add widget"
+              data-testid="dashboard-add-widget"
             >
               <Plus size={14} />
               <span>Add Widget</span>
@@ -190,6 +193,7 @@ export function DashboardLayout({
                 border: "1px solid var(--color-border)",
               }}
               aria-label="Reset layout"
+              data-testid="dashboard-reset"
             >
               <RotateCcw size={14} />
               <span>Reset</span>

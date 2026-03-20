@@ -377,6 +377,7 @@ export function BoardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div
+          data-testid="board-loading"
           className="animate-pulse"
           style={{ color: "var(--color-text-muted)" }}
         >
@@ -470,9 +471,10 @@ export function BoardPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div data-testid="board-page" className="min-h-screen flex flex-col">
       {/* Header */}
       <header
+        data-testid="board-header"
         className="flex items-center justify-between px-3 md:px-6 py-2 border-b safe-top"
         style={{
           backgroundColor: "var(--color-surface)",
@@ -534,6 +536,7 @@ export function BoardPage() {
             </div>
           ) : (
             <span
+              data-testid="view-mode-indicator"
               className="text-xs px-2 py-1 rounded"
               style={{
                 backgroundColor: "var(--color-bg)",
@@ -603,6 +606,7 @@ export function BoardPage() {
       {viewMode === "all-boards" ? (
         /* ── All Boards: stacked vertically like TUI ── */
         <main
+          data-testid="board-content"
           className="flex-1 overflow-y-auto"
           style={{ paddingBottom: isMobile ? tabBarHeight + 80 : 44 }}
         >
@@ -617,6 +621,7 @@ export function BoardPage() {
         isMobile ? (
           /* ── Mobile: single column filtered by active tab ── */
           <main
+            data-testid="board-content"
             className="flex-1 px-3 py-4 overflow-y-auto"
             style={{ paddingBottom: tabBarHeight + 80 }}
           >
@@ -633,6 +638,7 @@ export function BoardPage() {
         ) : (
           /* ── Desktop: 3-column layout ── */
           <main
+            data-testid="board-content"
             className="flex-1 p-4 md:p-6 lg:p-8 grid grid-cols-3 gap-4 md:gap-6 lg:gap-8 w-full"
             style={{ paddingBottom: 44 }}
           >
@@ -669,6 +675,7 @@ export function BoardPage() {
       ) : (
         /* ── Dashboard: widget layout ── */
         <main
+          data-testid="board-content"
           className="flex-1 overflow-y-auto"
           style={{ paddingBottom: isMobile ? tabBarHeight + 80 : 44 }}
         >

@@ -48,6 +48,7 @@ export function HelpModal({ open, onClose, shortcuts }: HelpModalProps) {
 
   return (
     <div
+      data-testid="help-modal"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{
         backgroundColor: "var(--color-backdrop)",

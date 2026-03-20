@@ -34,6 +34,7 @@ export function FooterBar({
     if (!stats) return null;
     return (
       <footer
+        data-testid="footer-bar"
         className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-20 flex items-center justify-between border-t"
         style={{
           backgroundColor: "var(--color-surface)",
@@ -68,6 +69,7 @@ export function FooterBar({
 
   return (
     <footer
+      data-testid="footer-bar"
       className="fixed bottom-0 left-0 right-0 z-20 flex items-center border-t safe-bottom"
       style={{
         backgroundColor: "var(--color-surface)",
@@ -120,6 +122,7 @@ export function FooterBar({
       {/* View mode indicator */}
       {!isMobile && (
         <div
+          data-testid="footer-view-indicator"
           className="flex items-center px-3 text-xs whitespace-nowrap"
           style={{ color: "var(--color-text-muted)", fontSize: 11 }}
         >
@@ -134,6 +137,7 @@ export function FooterBar({
       {/* Stats */}
       {stats && (
         <div
+          data-testid="footer-stats"
           className="flex items-center gap-1 px-3 whitespace-nowrap border-l"
           style={{
             color: "var(--color-text-muted)",
