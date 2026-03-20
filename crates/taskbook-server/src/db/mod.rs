@@ -1,3 +1,5 @@
+pub mod dal;
+
 use std::time::Duration;
 
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};

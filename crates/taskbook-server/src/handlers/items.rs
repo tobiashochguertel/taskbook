@@ -5,6 +5,7 @@ use axum::Json;
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
+use crate::db::dal;
 use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::router::{AppState, SyncEvent};
@@ -62,13 +63,9 @@ pub async fn get_items(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<ItemsResponse>> {
-    let rows = sqlx::query_as::<_, (String, Vec<u8>, Vec<u8>)>(
-        "SELECT item_key, data, nonce FROM items WHERE user_id = $1 AND archived = false",
-    )
-    .bind(auth.user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(ServerError::Database)?;
+    let rows = dal::fetch_items(&state.pool, auth.user_id, false)
+        .await
+        .map_err(ServerError::Database)?;
 
     Ok(Json(ItemsResponse {
         items: rows_to_encrypted_items(rows),
@@ -115,13 +112,9 @@ pub async fn get_archive(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<ItemsResponse>> {
-    let rows = sqlx::query_as::<_, (String, Vec<u8>, Vec<u8>)>(
-        "SELECT item_key, data, nonce FROM items WHERE user_id = $1 AND archived = true",
-    )
-    .bind(auth.user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(ServerError::Database)?;
+    let rows = dal::fetch_items(&state.pool, auth.user_id, true)
+        .await
+        .map_err(ServerError::Database)?;
 
     Ok(Json(ItemsResponse {
         items: rows_to_encrypted_items(rows),
@@ -204,9 +197,7 @@ async fn replace_items(
     // This serializes concurrent replace_items calls for the same user, preventing
     // the race where two DELETEs see no rows then both try to INSERT the same keys.
     let lock_key = user_id.as_u128() as i64;
-    sqlx::query("SELECT pg_advisory_xact_lock($1)")
-        .bind(lock_key)
-        .execute(&mut *tx)
+    dal::acquire_advisory_lock(&mut *tx, lock_key)
         .await
         .map_err(ServerError::Database)?;
 
@@ -215,40 +206,20 @@ async fn replace_items(
 
     // Delete items NOT in the new set (handles removals)
     if new_keys.is_empty() {
-        sqlx::query("DELETE FROM items WHERE user_id = $1 AND archived = $2")
-            .bind(user_id)
-            .bind(archived)
-            .execute(&mut *tx)
+        dal::delete_category_items(&mut *tx, user_id, archived)
             .await
             .map_err(ServerError::Database)?;
     } else {
-        sqlx::query(
-            "DELETE FROM items WHERE user_id = $1 AND archived = $2 AND item_key != ALL($3)",
-        )
-        .bind(user_id)
-        .bind(archived)
-        .bind(&new_keys)
-        .execute(&mut *tx)
-        .await
-        .map_err(ServerError::Database)?;
+        dal::delete_items_not_in_set(&mut *tx, user_id, archived, &new_keys)
+            .await
+            .map_err(ServerError::Database)?;
     }
 
     // Upsert each item — handles both new and existing items without conflict.
     for (key, data, nonce) in &decoded {
-        sqlx::query(
-            "INSERT INTO items (user_id, item_key, data, nonce, archived)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (user_id, item_key, archived)
-             DO UPDATE SET data = EXCLUDED.data, nonce = EXCLUDED.nonce, updated_at = NOW()",
-        )
-        .bind(user_id)
-        .bind(key)
-        .bind(data)
-        .bind(nonce)
-        .bind(archived)
-        .execute(&mut *tx)
-        .await
-        .map_err(ServerError::Database)?;
+        dal::upsert_item(&mut *tx, user_id, key, data, nonce, archived)
+            .await
+            .map_err(ServerError::Database)?;
     }
 
     tx.commit().await.map_err(ServerError::Database)?;

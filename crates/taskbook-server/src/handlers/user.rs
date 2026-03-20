@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::auth::{hash_password, verify_password};
 use crate::constants;
+use crate::db::dal;
 use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::router::AppState;
@@ -98,20 +99,14 @@ pub async fn register(
     let password_hash = hash_password(&req.password)
         .map_err(|e| ServerError::Internal(format!("password hashing failed: {e}")))?;
 
-    let user_id = sqlx::query_scalar::<_, Uuid>(
-        "INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id",
-    )
-    .bind(&req.username)
-    .bind(&req.email)
-    .bind(&password_hash)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|e| match e {
-        sqlx::Error::Database(ref db_err) if db_err.is_unique_violation() => {
-            ServerError::UserAlreadyExists
-        }
-        _ => ServerError::Database(e),
-    })?;
+    let user_id = dal::insert_user(&state.pool, &req.username, &req.email, Some(&password_hash))
+        .await
+        .map_err(|e| match e {
+            sqlx::Error::Database(ref db_err) if db_err.is_unique_violation() => {
+                ServerError::UserAlreadyExists
+            }
+            _ => ServerError::Database(e),
+        })?;
 
     let token = create_session(&state.pool, user_id, state.session_expiry_days).await?;
 
@@ -143,14 +138,10 @@ pub async fn login(
         return Err(ServerError::RateLimited);
     }
 
-    let user = sqlx::query_as::<_, (Uuid, Option<String>)>(
-        "SELECT id, password FROM users WHERE username = $1",
-    )
-    .bind(&req.username)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(ServerError::Database)?
-    .ok_or(ServerError::InvalidCredentials)?;
+    let user = dal::find_user_credentials(&state.pool, &req.username)
+        .await
+        .map_err(ServerError::Database)?
+        .ok_or(ServerError::InvalidCredentials)?;
 
     let (user_id, password_hash) = user;
     let password_hash = password_hash.ok_or(ServerError::InvalidCredentials)?;
@@ -182,9 +173,7 @@ pub async fn login(
 )]
 #[tracing::instrument(skip(state))]
 pub async fn logout(State(state): State<AppState>, auth: AuthUser) -> Result<()> {
-    sqlx::query("DELETE FROM sessions WHERE user_id = $1")
-        .bind(auth.user_id)
-        .execute(&state.pool)
+    dal::delete_user_sessions(&state.pool, auth.user_id)
         .await
         .map_err(ServerError::Database)?;
 
@@ -205,12 +194,9 @@ pub async fn logout(State(state): State<AppState>, auth: AuthUser) -> Result<()>
 )]
 #[tracing::instrument(skip(state))]
 pub async fn me(State(state): State<AppState>, auth: AuthUser) -> Result<Json<MeResponse>> {
-    let user =
-        sqlx::query_as::<_, (String, String)>("SELECT username, email FROM users WHERE id = $1")
-            .bind(auth.user_id)
-            .fetch_one(&state.pool)
-            .await
-            .map_err(ServerError::Database)?;
+    let user = dal::get_user_profile(&state.pool, auth.user_id)
+        .await
+        .map_err(ServerError::Database)?;
 
     Ok(Json(MeResponse {
         username: user.0,
@@ -239,10 +225,7 @@ pub async fn update_me(
     if let Some(ref username) = req.username {
         validate_username(username)?;
 
-        sqlx::query("UPDATE users SET username = $1 WHERE id = $2")
-            .bind(username)
-            .bind(auth.user_id)
-            .execute(&state.pool)
+        dal::update_username(&state.pool, auth.user_id, username)
             .await
             .map_err(|e| match e {
                 sqlx::Error::Database(ref db_err) if db_err.is_unique_violation() => {
@@ -252,12 +235,9 @@ pub async fn update_me(
             })?;
     }
 
-    let user =
-        sqlx::query_as::<_, (String, String)>("SELECT username, email FROM users WHERE id = $1")
-            .bind(auth.user_id)
-            .fetch_one(&state.pool)
-            .await
-            .map_err(ServerError::Database)?;
+    let user = dal::get_user_profile(&state.pool, auth.user_id)
+        .await
+        .map_err(ServerError::Database)?;
 
     Ok(Json(UpdateMeResponse {
         username: user.0,
@@ -280,14 +260,10 @@ pub async fn get_encryption_key_status(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<EncryptionKeyStatus>> {
-    let has_key = sqlx::query_scalar::<_, Option<String>>(
-        "SELECT encryption_key_hash FROM users WHERE id = $1",
-    )
-    .bind(auth.user_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(ServerError::Database)?
-    .is_some();
+    let has_key = dal::get_encryption_key_hash(&state.pool, auth.user_id)
+        .await
+        .map_err(ServerError::Database)?
+        .is_some();
 
     Ok(Json(EncryptionKeyStatus { has_key }))
 }
@@ -314,10 +290,7 @@ pub async fn store_encryption_key(
     hasher.update(req.encryption_key.as_bytes());
     let hash = format!("{:x}", hasher.finalize());
 
-    sqlx::query("UPDATE users SET encryption_key_hash = $1 WHERE id = $2")
-        .bind(&hash)
-        .bind(auth.user_id)
-        .execute(&state.pool)
+    dal::set_encryption_key_hash(&state.pool, auth.user_id, &hash)
         .await
         .map_err(ServerError::Database)?;
 
@@ -339,15 +312,11 @@ pub async fn reset_encryption_key(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<EncryptionKeyStatus>> {
-    sqlx::query("UPDATE users SET encryption_key_hash = NULL WHERE id = $1")
-        .bind(auth.user_id)
-        .execute(&state.pool)
+    dal::clear_encryption_key_hash(&state.pool, auth.user_id)
         .await
         .map_err(ServerError::Database)?;
 
-    sqlx::query("DELETE FROM items WHERE user_id = $1")
-        .bind(auth.user_id)
-        .execute(&state.pool)
+    dal::delete_all_user_items(&state.pool, auth.user_id)
         .await
         .map_err(ServerError::Database)?;
 
@@ -365,11 +334,7 @@ pub(crate) async fn create_session(
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(token_bytes);
     let expires_at = Utc::now() + Duration::days(expiry_days);
 
-    sqlx::query("INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, $3)")
-        .bind(user_id)
-        .bind(&token)
-        .bind(expires_at)
-        .execute(pool)
+    dal::insert_session(pool, user_id, &token, expires_at)
         .await
         .map_err(ServerError::Database)?;
 

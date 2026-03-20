@@ -4,6 +4,7 @@ use axum::http::{HeaderMap, Uri};
 use chrono::Utc;
 use uuid::Uuid;
 
+use crate::db::dal;
 use crate::error::ServerError;
 use crate::pat;
 use crate::router::AppState;
@@ -37,16 +38,10 @@ impl FromRequestParts<AppState> for AuthUser {
                 // PAT: look up by SHA-256 hash
                 let token_hash = pat::hash_token(&token);
                 let now = Utc::now();
-                let row = sqlx::query_as::<_, (Uuid, Uuid)>(
-                    "SELECT id, user_id FROM personal_access_tokens \
-                     WHERE token_hash = $1 AND (expires_at IS NULL OR expires_at > $2)",
-                )
-                .bind(&token_hash)
-                .bind(now)
-                .fetch_optional(&state.pool)
-                .await
-                .map_err(ServerError::Database)?
-                .ok_or(ServerError::Unauthorized)?;
+                let row = dal::find_valid_pat(&state.pool, &token_hash, now)
+                    .await
+                    .map_err(ServerError::Database)?
+                    .ok_or(ServerError::Unauthorized)?;
 
                 let pat_id = row.0;
                 let user_id = row.1;
@@ -54,27 +49,16 @@ impl FromRequestParts<AppState> for AuthUser {
                 // Fire-and-forget: update last_used_at
                 let pool = state.pool.clone();
                 tokio::spawn(async move {
-                    let _ = sqlx::query(
-                        "UPDATE personal_access_tokens SET last_used_at = $1 WHERE id = $2",
-                    )
-                    .bind(Utc::now())
-                    .bind(pat_id)
-                    .execute(&pool)
-                    .await;
+                    let _ = dal::touch_pat_last_used(&pool, pat_id, Utc::now()).await;
                 });
 
                 Ok(AuthUser { user_id })
             } else {
                 // Session token: existing behaviour
-                let session = sqlx::query_as::<_, (Uuid,)>(
-                    "SELECT user_id FROM sessions WHERE token = $1 AND expires_at > $2",
-                )
-                .bind(&token)
-                .bind(Utc::now())
-                .fetch_optional(&state.pool)
-                .await
-                .map_err(ServerError::Database)?
-                .ok_or(ServerError::Unauthorized)?;
+                let session = dal::find_session_user(&state.pool, &token, Utc::now())
+                    .await
+                    .map_err(ServerError::Database)?
+                    .ok_or(ServerError::Unauthorized)?;
 
                 Ok(AuthUser { user_id: session.0 })
             }

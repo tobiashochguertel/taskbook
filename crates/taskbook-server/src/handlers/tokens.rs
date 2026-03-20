@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::constants;
+use crate::db::dal;
 use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::pat;
@@ -100,17 +101,14 @@ pub async fn create_token(
 
     let expires_at = req.expires_in_days.map(|d| Utc::now() + Duration::days(d));
 
-    let row = sqlx::query_as::<_, (Uuid, DateTime<Utc>)>(
-        r#"INSERT INTO personal_access_tokens (user_id, name, token_hash, token_prefix, expires_at)
-           VALUES ($1, $2, $3, $4, $5)
-           RETURNING id, created_at"#,
+    let row = dal::insert_pat(
+        &state.pool,
+        auth.user_id,
+        &req.name,
+        &token_hash,
+        &token_prefix,
+        expires_at,
     )
-    .bind(auth.user_id)
-    .bind(&req.name)
-    .bind(&token_hash)
-    .bind(&token_prefix)
-    .bind(expires_at)
-    .fetch_one(&state.pool)
     .await
     .map_err(|e| match e {
         sqlx::Error::Database(ref db_err) if db_err.is_unique_violation() => {
@@ -150,26 +148,9 @@ pub async fn list_tokens(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<TokenListResponse>> {
-    let rows = sqlx::query_as::<
-        _,
-        (
-            Uuid,
-            String,
-            String,
-            Option<DateTime<Utc>>,
-            Option<DateTime<Utc>>,
-            DateTime<Utc>,
-        ),
-    >(
-        r#"SELECT id, name, token_prefix, expires_at, last_used_at, created_at
-           FROM personal_access_tokens
-           WHERE user_id = $1
-           ORDER BY created_at DESC"#,
-    )
-    .bind(auth.user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(ServerError::Database)?;
+    let rows = dal::list_user_pats(&state.pool, auth.user_id)
+        .await
+        .map_err(ServerError::Database)?;
 
     let tokens = rows
         .into_iter()
@@ -205,10 +186,7 @@ pub async fn revoke_token(
     auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    let result = sqlx::query("DELETE FROM personal_access_tokens WHERE id = $1 AND user_id = $2")
-        .bind(id)
-        .bind(auth.user_id)
-        .execute(&state.pool)
+    let result = dal::delete_pat(&state.pool, id, auth.user_id)
         .await
         .map_err(ServerError::Database)?;
 

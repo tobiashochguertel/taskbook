@@ -8,6 +8,7 @@ use base64::Engine;
 use tower_sessions::Session;
 use uuid::Uuid;
 
+use crate::db::dal;
 use crate::error::{Result, ServerError};
 use crate::handlers::user::create_session;
 use crate::router::{AppState, SpaRedirectUri, SPA_REDIRECT_SESSION_KEY};
@@ -72,14 +73,10 @@ pub async fn login(
                 target.push_str("&new_user=true");
             }
             if !is_new_user {
-                let has_key = sqlx::query_scalar::<_, Option<String>>(
-                    "SELECT encryption_key_hash FROM users WHERE id = $1",
-                )
-                .bind(user_id)
-                .fetch_one(&state.pool)
-                .await
-                .map_err(ServerError::Database)?
-                .is_some();
+                let has_key = dal::get_encryption_key_hash(&state.pool, user_id)
+                    .await
+                    .map_err(ServerError::Database)?
+                    .is_some();
                 target.push_str("&encryption_key_available=");
                 target.push_str(if has_key { "true" } else { "false" });
             }
@@ -129,14 +126,9 @@ async fn find_or_create_oidc_user(
     email: Option<&str>,
     preferred_username: Option<&str>,
 ) -> Result<(Uuid, bool, Option<String>)> {
-    let existing: Option<Uuid> = sqlx::query_scalar(
-        "SELECT user_id FROM oidc_identities WHERE provider = $1 AND subject = $2",
-    )
-    .bind(provider)
-    .bind(subject)
-    .fetch_optional(pool)
-    .await
-    .map_err(ServerError::Database)?;
+    let existing = dal::find_oidc_identity(pool, provider, subject)
+        .await
+        .map_err(ServerError::Database)?;
 
     if let Some(user_id) = existing {
         return Ok((user_id, false, None));
@@ -150,38 +142,23 @@ async fn find_or_create_oidc_user(
 
     // Try to find an existing user by email first — this handles the case where a
     // user registered via CLI (username/password) and now logs in via OIDC.
-    let existing_by_email: Option<Uuid> =
-        sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
-            .bind(email)
-            .fetch_optional(pool)
-            .await
-            .map_err(ServerError::Database)?;
+    let existing_by_email = dal::find_user_by_email(pool, email)
+        .await
+        .map_err(ServerError::Database)?;
 
     let (user_id, is_new) = if let Some(uid) = existing_by_email {
         (uid, false)
     } else {
-        let uid: Uuid = sqlx::query_scalar(
-            "INSERT INTO users (username, email, password) VALUES ($1, $2, NULL) RETURNING id",
-        )
-        .bind(&username)
-        .bind(email)
-        .fetch_one(pool)
-        .await
-        .map_err(ServerError::Database)?;
+        let uid = dal::insert_user(pool, &username, email, None)
+            .await
+            .map_err(ServerError::Database)?;
         (uid, true)
     };
 
     // Link the OIDC identity to this user (new or existing).
-    sqlx::query(
-        "INSERT INTO oidc_identities (user_id, provider, subject) VALUES ($1, $2, $3) \
-         ON CONFLICT (provider, subject) DO NOTHING",
-    )
-    .bind(user_id)
-    .bind(provider)
-    .bind(subject)
-    .execute(pool)
-    .await
-    .map_err(ServerError::Database)?;
+    dal::link_oidc_identity(pool, user_id, provider, subject)
+        .await
+        .map_err(ServerError::Database)?;
 
     if is_new {
         let raw_key = taskbook_common::encryption::generate_key();
@@ -223,12 +200,9 @@ async fn find_unique_username(
         } else {
             format!("{}_{}", base, i + 1)
         };
-        let taken: bool =
-            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)")
-                .bind(&candidate)
-                .fetch_one(pool)
-                .await
-                .map_err(ServerError::Database)?;
+        let taken = dal::username_exists(pool, &candidate)
+            .await
+            .map_err(ServerError::Database)?;
         if !taken {
             return Ok(candidate);
         }
