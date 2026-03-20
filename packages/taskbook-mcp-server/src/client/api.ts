@@ -82,22 +82,39 @@ export class TaskbookClient {
       "Content-Type": "application/json",
     };
 
-    const resp = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const maxRetries = method === "PUT" || method === "POST" ? 3 : 1;
+    let lastError: Error | null = null;
 
-    if (!resp.ok) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      if (attempt > 0) {
+        // Exponential backoff: 200ms, 600ms
+        await new Promise((r) => setTimeout(r, 200 * Math.pow(3, attempt - 1)));
+      }
+
+      const resp = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      if (resp.ok) {
+        const contentType = resp.headers.get("content-type") ?? "";
+        if (contentType.includes("application/json")) {
+          return (await resp.json()) as T;
+        }
+        return {} as T;
+      }
+
       const text = await resp.text();
-      throw new Error(`Taskbook API ${method} ${path}: ${resp.status} ${text}`);
+      lastError = new Error(
+        `Taskbook API ${method} ${path}: ${resp.status} ${text}`,
+      );
+
+      // Only retry on 500 (server error); don't retry 4xx (client errors)
+      if (resp.status < 500) break;
     }
 
-    const contentType = resp.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      return (await resp.json()) as T;
-    }
-    return {} as T;
+    throw lastError!;
   }
 
   // --- Decryption helpers ---

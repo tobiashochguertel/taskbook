@@ -236,7 +236,7 @@ export function useEventSync() {
     const es = new EventSource(`/api/v1/events?token=${token}`);
     eventSourceRef.current = es;
 
-    es.onmessage = () => {
+    const handleDataChanged = () => {
       // Debounce rapid SSE events — coalesce within 500ms
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
@@ -246,10 +246,13 @@ export function useEventSync() {
       }, 500);
     };
 
+    // Server sends named "data_changed" events — addEventListener is required.
+    // (onmessage only handles unnamed events without an event: field.)
+    es.addEventListener("data_changed", handleDataChanged);
+
     es.onerror = () => {
       // EventSource auto-reconnects; on reconnect trigger full sync
       if (es.readyState === EventSource.CONNECTING) {
-        // Will re-open — queue a full sync for when it reconnects
         const onReopen = () => {
           queryClient.invalidateQueries({ queryKey: ["items-raw"] });
           queryClient.invalidateQueries({ queryKey: ["archive-raw"] });
@@ -261,6 +264,7 @@ export function useEventSync() {
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      es.removeEventListener("data_changed", handleDataChanged);
       es.close();
       eventSourceRef.current = null;
     };
