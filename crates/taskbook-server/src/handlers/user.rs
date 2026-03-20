@@ -10,6 +10,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::auth::{hash_password, verify_password};
+use crate::constants;
 use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::router::AppState;
@@ -378,9 +379,9 @@ pub(crate) async fn create_session(
 /// Validate registration input fields.
 /// Shared username validation: 1-64 chars, alphanumeric/underscore/dash/dot
 fn validate_username(username: &str) -> Result<()> {
-    if username.is_empty() || username.len() > 64 {
+    if username.is_empty() || username.len() > constants::MAX_USERNAME_LEN {
         return Err(ServerError::Validation(
-            "username must be 1-64 characters".into(),
+            format!("username must be 1-{} characters", constants::MAX_USERNAME_LEN),
         ));
     }
     if !username
@@ -404,9 +405,9 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
 
     validate_username(&req.username)?;
 
-    if req.email.len() > 255 {
+    if req.email.len() > constants::MAX_EMAIL_LEN {
         return Err(ServerError::Validation(
-            "email must be at most 255 characters".to_string(),
+            format!("email must be at most {} characters", constants::MAX_EMAIL_LEN),
         ));
     }
 
@@ -416,15 +417,15 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
         ));
     }
 
-    if req.password.len() < 8 {
+    if req.password.len() < constants::MIN_PASSWORD_LEN {
         return Err(ServerError::Validation(
-            "password must be at least 8 characters".to_string(),
+            format!("password must be at least {} characters", constants::MIN_PASSWORD_LEN),
         ));
     }
 
-    if req.password.len() > 1024 {
+    if req.password.len() > constants::MAX_PASSWORD_LEN {
         return Err(ServerError::Validation(
-            "password must be at most 1024 characters".to_string(),
+            format!("password must be at most {} characters", constants::MAX_PASSWORD_LEN),
         ));
     }
 

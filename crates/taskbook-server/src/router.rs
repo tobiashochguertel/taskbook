@@ -13,6 +13,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 use uuid::Uuid;
 
 use crate::config::OidcConfig;
+use crate::constants;
 use crate::handlers::{events, health, items, tokens, user};
 use crate::metrics_middleware::HttpMetricsLayer;
 use crate::openapi::ApiDoc;
@@ -141,7 +142,10 @@ pub async fn build(
     prometheus_handle: PrometheusHandle,
     oidc_config: Option<&OidcConfig>,
 ) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
-    let auth_rate_limiter = RateLimiter::new(10, 60);
+    let auth_rate_limiter = RateLimiter::new(
+        constants::AUTH_RATE_LIMIT_REQUESTS,
+        constants::AUTH_RATE_LIMIT_WINDOW_SECS,
+    );
 
     let oidc_issuer = oidc_config.map(|c| c.issuer.clone());
     let allowed_redirects = oidc_config
@@ -189,7 +193,7 @@ pub async fn build(
         .route("/api/v1/items/archive", put(items::put_archive))
         .route("/api/v1/events", get(events::events))
         .route("/metrics", get(metrics_handler))
-        .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024))
+        .layer(RequestBodyLimitLayer::new(constants::MAX_REQUEST_BODY_BYTES))
         .layer(cors)
         .layer(HttpMetricsLayer);
 

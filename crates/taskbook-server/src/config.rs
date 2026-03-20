@@ -1,5 +1,7 @@
 use std::net::IpAddr;
 
+use crate::constants;
+
 /// OIDC provider configuration for SSO login.
 /// Enabled only when all three required env vars are present.
 #[derive(Clone, Debug)]
@@ -37,7 +39,7 @@ pub struct ServerConfig {
 impl ServerConfig {
     pub fn load() -> Result<Self, String> {
         let db_host = require_env("TB_DB_HOST")?;
-        let db_port = std::env::var("TB_DB_PORT").unwrap_or_else(|_| "5432".to_string());
+        let db_port = std::env::var("TB_DB_PORT").unwrap_or_else(|_| constants::DEFAULT_DB_PORT.to_string());
         let db_name = require_env("TB_DB_NAME")?;
         let db_user = require_env("TB_DB_USER")?;
         let db_password = require_env("TB_DB_PASSWORD")?;
@@ -48,17 +50,17 @@ impl ServerConfig {
         );
 
         let host: IpAddr = std::env::var("TB_HOST")
-            .unwrap_or_else(|_| "0.0.0.0".to_string())
+            .unwrap_or_else(|_| constants::DEFAULT_HOST.to_string())
             .parse()
             .map_err(|_| "TB_HOST must be a valid IP address".to_string())?;
 
         let port: u16 = std::env::var("TB_PORT")
-            .unwrap_or_else(|_| "8080".to_string())
+            .unwrap_or_else(|_| constants::DEFAULT_PORT.to_string())
             .parse()
             .map_err(|_| "TB_PORT must be a valid port number".to_string())?;
 
         let session_expiry_days: i64 = std::env::var("TB_SESSION_EXPIRY_DAYS")
-            .unwrap_or_else(|_| "30".to_string())
+            .unwrap_or_else(|_| constants::DEFAULT_SESSION_EXPIRY_DAYS.to_string())
             .parse()
             .map_err(|_| "TB_SESSION_EXPIRY_DAYS must be a number".to_string())?;
 
