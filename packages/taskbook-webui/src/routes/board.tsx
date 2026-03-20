@@ -8,23 +8,28 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AllBoardsView } from "../components/ui/all-boards-view";
 import { CommandPalette } from "../components/ui/command-palette";
 import { ConnectionIndicator } from "../components/ui/connection-indicator";
 import { CreateItemSheet } from "../components/ui/create-item-sheet";
 import { Drawer } from "../components/ui/drawer";
 import { Fab } from "../components/ui/fab";
+import { FooterBar, type ViewMode } from "../components/ui/footer-bar";
+import { HelpModal } from "../components/ui/help-modal";
 import { type MobileTab, MobileTabs } from "../components/ui/mobile-tabs";
 import { ProfileMenu } from "../components/ui/profile-menu";
 import { SettingsDialog } from "../components/ui/settings-dialog";
 import { SyncStatusButton } from "../components/ui/sync-status-button";
-import { TaskbookLogo } from "../components/ui/taskbook-logo";
 import { TaskCard } from "../components/ui/task-card";
+import { TaskbookLogo } from "../components/ui/taskbook-logo";
+import { useBoards } from "../hooks/useBoards";
 import { useArchive, useEventSync, useItems, useUser } from "../hooks/useItems";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useSettings } from "../lib/settings";
 import {
-  getBoards,
+  isBoardsMetadata,
   isTask,
   type NoteItem,
   type StorageItem,
@@ -51,107 +56,57 @@ export function BoardPage() {
 
   const { settings, isMobile } = useSettings();
 
+  // Board management via synced metadata (replaces localStorage)
+  const {
+    boards,
+    itemBoards,
+    addCustomBoard,
+    deleteCustomBoard: deleteBoard,
+    renameCustomBoard: renameBoard,
+  } = useBoards(items, updateItems);
+
+  // Filter out metadata items for display
+  const displayItems = useMemo(
+    () => itemsList.filter((i) => !isBoardsMetadata(i)),
+    [itemsList],
+  );
+
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showArchiveView, setShowArchiveView] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("tasks");
-
-  // Custom boards stored in localStorage for empty boards
-  const [customBoards, setCustomBoards] = useState<string[]>(() => {
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
-      const stored = localStorage.getItem("tb_custom_boards");
-      if (!stored) return [];
-      const parsed: string[] = JSON.parse(stored);
-      // Normalize: strip leading @ prefixes (legacy bug)
-      const normalized = parsed.map((b) => b.replace(/^@+/, "").trim()).filter(Boolean);
-      const deduped = [...new Set(normalized)];
-      if (JSON.stringify(deduped) !== JSON.stringify(parsed)) {
-        localStorage.setItem("tb_custom_boards", JSON.stringify(deduped));
-      }
-      return deduped;
+      const stored = localStorage.getItem("tb_view_mode");
+      if (
+        stored === "board" ||
+        stored === "all-boards" ||
+        stored === "dashboard"
+      )
+        return stored;
     } catch {
-      return [];
+      /* ignore */
     }
+    return "all-boards";
   });
 
-  const itemBoards = useMemo(() => getBoards(itemsList), [itemsList]);
-  const boards = useMemo(() => {
-    const all = new Set([...itemBoards, ...customBoards]);
-    return Array.from(all).sort();
-  }, [itemBoards, customBoards]);
+  // Persist view mode
+  useEffect(() => {
+    try {
+      localStorage.setItem("tb_view_mode", viewMode);
+    } catch {
+      /* ignore */
+    }
+  }, [viewMode]);
 
   const currentBoard = selectedBoard ?? boards[0] ?? "My Board";
 
-  const addCustomBoard = useCallback((name: string) => {
-    const cleaned = name.replace(/^@+/, "").trim();
-    if (!cleaned) return;
-    setCustomBoards((prev) => {
-      if (prev.includes(cleaned)) return prev;
-      const next = [...prev, cleaned];
-      localStorage.setItem("tb_custom_boards", JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const deleteBoard = useCallback(
-    (name: string) => {
-      // Remove from custom boards
-      setCustomBoards((prev) => {
-        const next = prev.filter((b) => b !== name);
-        localStorage.setItem("tb_custom_boards", JSON.stringify(next));
-        return next;
-      });
-      // Switch away if we're on the deleted board
-      if (currentBoard === name) {
-        const remaining = boards.filter((b) => b !== name);
-        setSelectedBoard(remaining[0] ?? null);
-      }
-    },
-    [currentBoard, boards],
-  );
-
-  const renameBoard = useCallback(
-    (oldName: string, newName: string) => {
-      // Strip leading @ if user typed it
-      const cleaned = newName.replace(/^@+/, "").trim();
-      if (!cleaned || cleaned === oldName) return;
-
-      // Update custom boards list
-      setCustomBoards((prev) => {
-        const next = prev.map((b) => (b === oldName ? cleaned : b));
-        if (!next.includes(cleaned)) next.push(cleaned);
-        const deduped = [...new Set(next.filter((b) => b !== oldName || b === cleaned))];
-        localStorage.setItem("tb_custom_boards", JSON.stringify(deduped));
-        return deduped;
-      });
-
-      // Update all items that reference the old board name
-      const updated = { ...items };
-      let changed = false;
-      for (const [id, item] of Object.entries(updated)) {
-        if (item.boards.includes(oldName)) {
-          updated[id] = {
-            ...item,
-            boards: item.boards.map((b) => (b === oldName ? cleaned : b)),
-          };
-          changed = true;
-        }
-      }
-      if (changed) updateItems(updated);
-
-      // Switch to renamed board if we were on it
-      if (currentBoard === oldName) {
-        setSelectedBoard(cleaned);
-      }
-    },
-    [items, updateItems, currentBoard],
-  );
-
   const boardItems = useMemo(() => {
-    return itemsList.filter((item) => item.boards.includes(currentBoard));
-  }, [itemsList, currentBoard]);
+    return displayItems.filter((item) => item.boards.includes(currentBoard));
+  }, [displayItems, currentBoard]);
 
   const tasks = useMemo(
     () => boardItems.filter((i) => isTask(i) && !i.isComplete),
@@ -337,32 +292,58 @@ export function BoardPage() {
     [items, itemsList, updateItems],
   );
 
-  // Keyboard shortcut for command palette
-  if (typeof window !== "undefined") {
-    import("tinykeys").then(({ tinykeys }) => {
-      tinykeys(window, {
-        "$mod+KeyK": (e) => {
-          e.preventDefault();
-          setShowCommandPalette(true);
-        },
-      });
+  // Cycle view mode: board → all-boards → dashboard → board
+  const cycleView = useCallback(() => {
+    setViewMode((prev) => {
+      const modes: ViewMode[] = ["board", "all-boards", "dashboard"];
+      const idx = modes.indexOf(prev);
+      return modes[(idx + 1) % modes.length];
     });
-  }
+  }, []);
 
-  // ESC key handler: close archive view, settings, or command palette
+  // Any modal open? (disable keyboard shortcuts when typing)
+  const anyModalOpen =
+    showCommandPalette ||
+    showCreateSheet ||
+    showSettings ||
+    showArchiveView ||
+    showHelp;
+
+  // Keyboard shortcuts
+  const { shortcuts } = useKeyboardShortcuts({
+    actions: {
+      onToggleHelp: () => setShowHelp((prev) => !prev),
+      onSearch: () => setShowCommandPalette(true),
+      onNewItem: () => setShowCreateSheet(true),
+      onToggleView: cycleView,
+      onRefresh: () => refetch(),
+      onViewBoard: () => setViewMode("board"),
+      onViewAllBoards: () => setViewMode("all-boards"),
+      onViewDashboard: () => setViewMode("dashboard"),
+    },
+    disabled: anyModalOpen,
+  });
+
+  // ESC key handler: close any open modal/view
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (showArchiveView) {
-          setShowArchiveView(false);
-        } else if (showSettings) {
-          setShowSettings(false);
-        }
+        if (showHelp) setShowHelp(false);
+        else if (showArchiveView) setShowArchiveView(false);
+        else if (showSettings) setShowSettings(false);
       }
     };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [showArchiveView, showSettings]);
+  }, [showArchiveView, showSettings, showHelp]);
+
+  // Stats for footer bar
+  const footerStats = useMemo(() => {
+    const t = displayItems.filter((i) => isTask(i) && !i.isComplete).length;
+    const d = displayItems.filter((i) => isTask(i) && i.isComplete).length;
+    const n = displayItems.filter((i) => !isTask(i)).length;
+    return { tasks: t, done: d, notes: n };
+  }, [displayItems]);
 
   const showBurger =
     settings.navStyle === "burger" || settings.navStyle === "both";
@@ -526,29 +507,41 @@ export function BoardPage() {
             </h1>
           </a>
 
-          {/* Board selector — works on all screen sizes */}
-          <div className="relative">
-            <select
-              value={currentBoard}
-              onChange={(e) => setSelectedBoard(e.target.value)}
-              className="appearance-none pr-6 pl-2 md:pr-8 md:pl-3 py-1 md:py-1.5 rounded text-xs md:text-sm cursor-pointer border-none"
+          {/* Board selector — only in board view mode */}
+          {viewMode === "board" ? (
+            <div className="relative">
+              <select
+                value={currentBoard}
+                onChange={(e) => setSelectedBoard(e.target.value)}
+                className="appearance-none pr-6 pl-2 md:pr-8 md:pl-3 py-1 md:py-1.5 rounded text-xs md:text-sm cursor-pointer border-none"
+                style={{
+                  backgroundColor: "var(--color-bg)",
+                  color: "var(--color-text)",
+                }}
+              >
+                {boards.map((board) => (
+                  <option key={board} value={board}>
+                    @{board}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={12}
+                className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: "var(--color-text-muted)" }}
+              />
+            </div>
+          ) : (
+            <span
+              className="text-xs px-2 py-1 rounded"
               style={{
                 backgroundColor: "var(--color-bg)",
-                color: "var(--color-text)",
+                color: "var(--color-text-muted)",
               }}
             >
-              {boards.map((board) => (
-                <option key={board} value={board}>
-                  @{board}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={12}
-              className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 pointer-events-none"
-              style={{ color: "var(--color-text-muted)" }}
-            />
-          </div>
+              {viewMode === "all-boards" ? "All Boards" : "Dashboard"}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1 md:gap-2">
@@ -605,79 +598,95 @@ export function BoardPage() {
         </div>
       </header>
 
-      {/* Board content */}
-      {isMobile ? (
-        /* ── Mobile: single column filtered by active tab ── */
+      {/* Board content — view-mode aware */}
+      {viewMode === "all-boards" ? (
+        /* ── All Boards: stacked vertically like TUI ── */
         <main
-          className="flex-1 px-3 py-4 overflow-y-auto"
-          style={{ paddingBottom: tabBarHeight + 80 }}
+          className="flex-1 overflow-y-auto"
+          style={{ paddingBottom: isMobile ? tabBarHeight + 80 : 44 }}
         >
-          <MobileColumn
-            items={mobileItems}
-            tab={mobileTab}
+          <AllBoardsView
+            items={displayItems}
             onToggleComplete={toggleComplete}
             onToggleStar={toggleStar}
-            onClearChecked={mobileTab === "done" ? clearChecked : undefined}
-            doneCount={mobileTab === "done" ? done.length : 0}
             {...columnCallbacks}
           />
         </main>
+      ) : viewMode === "board" ? (
+        isMobile ? (
+          /* ── Mobile: single column filtered by active tab ── */
+          <main
+            className="flex-1 px-3 py-4 overflow-y-auto"
+            style={{ paddingBottom: tabBarHeight + 80 }}
+          >
+            <MobileColumn
+              items={mobileItems}
+              tab={mobileTab}
+              onToggleComplete={toggleComplete}
+              onToggleStar={toggleStar}
+              onClearChecked={mobileTab === "done" ? clearChecked : undefined}
+              doneCount={mobileTab === "done" ? done.length : 0}
+              {...columnCallbacks}
+            />
+          </main>
+        ) : (
+          /* ── Desktop: 3-column layout ── */
+          <main
+            className="flex-1 p-4 md:p-6 lg:p-8 grid grid-cols-3 gap-4 md:gap-6 lg:gap-8 w-full"
+            style={{ paddingBottom: 44 }}
+          >
+            <Column
+              title="Tasks"
+              icon={<CheckSquare size={16} />}
+              items={tasks}
+              onToggleComplete={toggleComplete}
+              onToggleStar={toggleStar}
+              accentColor="var(--color-warning)"
+              {...columnCallbacks}
+            />
+            <Column
+              title="Notes"
+              icon={<StickyNote size={16} />}
+              items={notes}
+              onToggleComplete={toggleComplete}
+              onToggleStar={toggleStar}
+              accentColor="var(--color-info)"
+              {...columnCallbacks}
+            />
+            <Column
+              title="Done"
+              icon={<CheckSquare size={16} />}
+              items={done}
+              onToggleComplete={toggleComplete}
+              onToggleStar={toggleStar}
+              accentColor="var(--color-success)"
+              onClearChecked={clearChecked}
+              {...columnCallbacks}
+            />
+          </main>
+        )
       ) : (
-        /* ── Desktop: 3-column layout ── */
-        <main className="flex-1 p-4 md:p-6 lg:p-8 grid grid-cols-3 gap-4 md:gap-6 lg:gap-8 w-full">
-          <Column
-            title="Tasks"
-            icon={<CheckSquare size={16} />}
-            items={tasks}
-            onToggleComplete={toggleComplete}
-            onToggleStar={toggleStar}
-            accentColor="var(--color-warning)"
-            {...columnCallbacks}
-          />
-          <Column
-            title="Notes"
-            icon={<StickyNote size={16} />}
-            items={notes}
-            onToggleComplete={toggleComplete}
-            onToggleStar={toggleStar}
-            accentColor="var(--color-info)"
-            {...columnCallbacks}
-          />
-          <Column
-            title="Done"
-            icon={<CheckSquare size={16} />}
-            items={done}
-            onToggleComplete={toggleComplete}
-            onToggleStar={toggleStar}
-            accentColor="var(--color-success)"
-            onClearChecked={clearChecked}
-            {...columnCallbacks}
-          />
+        /* ── Dashboard: placeholder for widget layout ── */
+        <main
+          className="flex-1 overflow-y-auto p-4"
+          style={{ paddingBottom: 44 }}
+        >
+          <div
+            className="flex items-center justify-center h-full text-sm"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            Dashboard view — widget layout coming soon. Press Tab to switch
+            views.
+          </div>
         </main>
       )}
 
-      {/* Desktop footer */}
-      {!isMobile && (
-        <footer
-          className="px-6 lg:px-8 py-2 text-center text-xs md:text-sm border-t"
-          style={{
-            color: "var(--color-text-muted)",
-            borderColor: "var(--color-border)",
-          }}
-        >
-          Press{" "}
-          <kbd
-            className="px-1.5 py-0.5 rounded text-xs"
-            style={{
-              backgroundColor: "var(--color-surface)",
-              color: "var(--color-text)",
-            }}
-          >
-            ⌘K
-          </kbd>{" "}
-          for command palette
-        </footer>
-      )}
+      {/* Footer bar with keyboard shortcuts */}
+      <FooterBar
+        shortcuts={shortcuts}
+        viewMode={viewMode}
+        stats={footerStats}
+      />
 
       {/* Mobile tab bar */}
       {showTabs && (
@@ -732,12 +741,19 @@ export function BoardPage() {
       {/* Command palette */}
       {showCommandPalette && (
         <CommandPalette
-          items={itemsList}
+          items={displayItems}
           boards={boards}
           onClose={() => setShowCommandPalette(false)}
           onSelectBoard={setSelectedBoard}
         />
       )}
+
+      {/* Help modal */}
+      <HelpModal
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        shortcuts={shortcuts}
+      />
     </div>
   );
 }
