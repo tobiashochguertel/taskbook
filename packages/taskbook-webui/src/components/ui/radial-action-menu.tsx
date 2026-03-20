@@ -14,7 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSettings } from "../../lib/settings";
 import "../../styles/radial-menu.css";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -47,6 +48,11 @@ type ActionKey =
   | "settings"
   | "help";
 
+// Submenu parent identifiers — NOT action keys
+const SUBMENU_KEYS = new Set(["views", "more"]);
+
+const OUTER_RADIUS = 100;
+
 // ── Helpers ────────────────────────────────────────────────────
 
 function useTouchDevice() {
@@ -59,6 +65,21 @@ function useTouchDevice() {
     return () => mq.removeEventListener("change", handler);
   }, []);
   return isTouch;
+}
+
+/** Clamp menu center so the full circle fits within viewport */
+function clampMenuCenter(
+  rawX: number,
+  rawY: number,
+  radius: number,
+): { x: number; y: number } {
+  const margin = 8;
+  const w = typeof window !== "undefined" ? window.innerWidth : 400;
+  const h = typeof window !== "undefined" ? window.innerHeight : 800;
+  return {
+    x: Math.min(Math.max(radius + margin, rawX), w - radius - margin),
+    y: Math.min(Math.max(radius + margin, rawY), h - radius - margin),
+  };
 }
 
 const ICON_SIZE = 18;
@@ -95,31 +116,62 @@ export function RadialActionMenu({
   visible,
 }: RadialActionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [clickedItem, setClickedItem] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const isTouch = useTouchDevice();
+  const { settings, resolvedTheme } = useSettings();
 
-  const actionMap: Record<ActionKey, () => void> = {
-    task: onNewTask,
-    note: onNewNote,
-    search: onSearch,
-    sync: onSync,
-    board: onViewBoard,
-    "all-boards": onViewAllBoards,
-    dashboard: onViewDashboard,
-    archive: onOpenArchive,
-    settings: onOpenSettings,
-    help: onOpenHelp,
-  };
+  const actionMap = useMemo<Record<ActionKey, () => void>>(
+    () => ({
+      task: onNewTask,
+      note: onNewNote,
+      search: onSearch,
+      sync: onSync,
+      board: onViewBoard,
+      "all-boards": onViewAllBoards,
+      dashboard: onViewDashboard,
+      archive: onOpenArchive,
+      settings: onOpenSettings,
+      help: onOpenHelp,
+    }),
+    [
+      onNewTask,
+      onNewNote,
+      onSearch,
+      onSync,
+      onViewBoard,
+      onViewAllBoards,
+      onViewDashboard,
+      onOpenArchive,
+      onOpenSettings,
+      onOpenHelp,
+    ],
+  );
 
   const handleItemClick = useCallback(
-    (_event: React.MouseEvent, _index: number, data?: ActionKey) => {
-      if (data && actionMap[data]) {
-        actionMap[data]();
+    (_event: React.MouseEvent, _index: number, data?: string) => {
+      if (!data) return;
+
+      // SubMenu parent items just navigate — don't close
+      if (SUBMENU_KEYS.has(data)) return;
+
+      // Flash visual feedback
+      setClickedItem(data);
+      setTimeout(() => setClickedItem(null), 200);
+
+      // Execute the action
+      const action = actionMap[data as ActionKey];
+      if (action) {
+        navigator.vibrate?.(5);
+        action();
       }
-      setIsOpen(false);
+
+      // Auto-close unless disabled in settings
+      if (settings.radialMenuAutoClose !== false) {
+        setTimeout(() => setIsOpen(false), 120);
+      }
     },
-    // biome-ignore lint/correctness/useExhaustiveDependencies: actionMap is stable per render
-    [actionMap],
+    [actionMap, settings.radialMenuAutoClose],
   );
 
   const toggleMenu = useCallback(() => {
@@ -135,17 +187,21 @@ export function RadialActionMenu({
   const shouldRender = visible ?? isTouch;
   if (!shouldRender) return null;
 
-  // Compute menu center from trigger button position
-  const triggerBottom = `calc(${bottomOffset}px + max(1rem, env(safe-area-inset-bottom, 1rem)))`;
-  const triggerRight = "max(1rem, env(safe-area-inset-right, 1rem))";
-
-  // The menu center is placed at the center of the trigger button (28px = half of 56px)
-  const menuCenterX =
+  // Compute menu center — button is bottom-right, clamp within viewport
+  const btnCenterX =
     typeof window !== "undefined" ? window.innerWidth - 44 : 331;
-  const menuCenterY =
+  const btnCenterY =
     typeof window !== "undefined"
       ? window.innerHeight - bottomOffset - 44
       : 700;
+  const { x: menuCenterX, y: menuCenterY } = clampMenuCenter(
+    btnCenterX,
+    btnCenterY,
+    OUTER_RADIUS,
+  );
+
+  const triggerBottom = `calc(${bottomOffset}px + max(1rem, env(safe-area-inset-bottom, 1rem)))`;
+  const triggerRight = "max(1rem, env(safe-area-inset-right, 1rem))";
 
   return (
     <>
@@ -163,6 +219,7 @@ export function RadialActionMenu({
 
       {/* Radial menu (SVG overlay) */}
       <div
+        className={clickedItem ? "radial-menu-item-flash" : ""}
         style={{
           position: "fixed",
           inset: 0,
@@ -174,10 +231,12 @@ export function RadialActionMenu({
           centerX={menuCenterX}
           centerY={menuCenterY}
           innerRadius={35}
-          outerRadius={100}
+          outerRadius={OUTER_RADIUS}
           show={isOpen}
           animation={["fade", "scale"]}
           animationTimeout={150}
+          animateSubMenuChange
+          theme={resolvedTheme}
         >
           <MenuItem onItemClick={handleItemClick} data="task">
             <ItemContent icon={Plus} label="Task" />

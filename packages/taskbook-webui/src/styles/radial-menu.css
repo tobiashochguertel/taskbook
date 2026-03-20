@@ -50,13 +50,39 @@
   font-size: 11px;
 }
 
-/* ── Light-theme specifics ──────────────────────────────────── */
-[data-theme="light"] {
+/* ── Dark theme specifics ───────────────────────────────────── */
+[data-theme="dark"],
+.__rrm-dark {
+  --__reactRadialMenu__menu-bgColor: var(--color-surface);
+  --__reactRadialMenu__separator-color: var(--color-border);
+  --__reactRadialMenu__item-color: var(--color-text);
+  --__reactRadialMenu__activeItem-bgColor: var(--color-accent);
+  --__reactRadialMenu__activeItem-color: var(--color-bg);
+  --__reactRadialMenu__arrow-color: var(--color-text-muted);
+  --__reactRadialMenu__activeArrow-color: var(--color-bg);
+}
+
+/* ── Light theme specifics ──────────────────────────────────── */
+[data-theme="light"],
+.__rrm-light {
   --__reactRadialMenu__menu-bgColor: var(--color-surface);
   --__reactRadialMenu__separator-color: var(--color-border);
   --__reactRadialMenu__item-color: var(--color-text);
   --__reactRadialMenu__activeItem-bgColor: var(--color-accent);
   --__reactRadialMenu__activeItem-color: #ffffff;
+  --__reactRadialMenu__arrow-color: var(--color-text-muted);
+  --__reactRadialMenu__activeArrow-color: #ffffff;
+}
+
+/* ── Click animation feedback ───────────────────────────────── */
+.radial-menu-item-flash .__rrm-active {
+  animation: radial-item-pulse 0.2s ease-out;
+}
+
+@keyframes radial-item-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* ── Backdrop behind the radial menu ────────────────────────── */

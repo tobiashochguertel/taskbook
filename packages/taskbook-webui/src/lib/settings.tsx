@@ -17,6 +17,8 @@ export interface WebUISettings {
   swipeGestures: boolean;
   compactCards: boolean;
   autoCloseDrawer: boolean;
+  /** Whether radial menu auto-closes after item click (default: true) */
+  radialMenuAutoClose: boolean;
 }
 
 const DEFAULT_SETTINGS: WebUISettings = {
@@ -25,6 +27,7 @@ const DEFAULT_SETTINGS: WebUISettings = {
   swipeGestures: true,
   compactCards: false,
   autoCloseDrawer: true,
+  radialMenuAutoClose: true,
 };
 
 const STORAGE_KEY = "tb_webui_settings";

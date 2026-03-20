@@ -27,10 +27,44 @@ export function FooterBar({
 }: FooterBarProps) {
   const { isMobile } = useSettings();
 
-  // On mobile/touch screens, hide footer bar — radial menu provides actions
-  if (isMobile) return null;
-
   const visibleShortcuts = getFooterShortcuts(shortcuts);
+
+  // Mobile: show only stats + view indicator (no keyboard shortcuts)
+  if (isMobile) {
+    if (!stats) return null;
+    return (
+      <footer
+        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-20 flex items-center justify-between border-t"
+        style={{
+          backgroundColor: "var(--color-surface)",
+          borderColor: "var(--color-border)",
+          height: 28,
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        <div
+          className="flex items-center px-3 text-xs whitespace-nowrap"
+          style={{ color: "var(--color-text-muted)", fontSize: 10 }}
+        >
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full mr-1.5"
+            style={{ backgroundColor: "var(--color-accent)" }}
+          />
+          {VIEW_LABELS[viewMode]}
+        </div>
+        <div
+          className="flex items-center gap-1 px-3 whitespace-nowrap"
+          style={{ color: "var(--color-text-muted)", fontSize: 10 }}
+        >
+          <span>{stats.tasks}T</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{stats.done}✓</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{stats.notes}N</span>
+        </div>
+      </footer>
+    );
+  }
 
   return (
     <footer
