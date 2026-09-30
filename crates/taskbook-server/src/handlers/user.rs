@@ -202,24 +202,25 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
         ));
     }
 
-    if req.password.len() < 8 {
+    let password_length = req.password.chars().count();
+
+    if password_length < 8 {
         return Err(ServerError::Validation(
             "password must be at least 8 characters".to_string(),
         ));
     }
 
-    if req.password.len() > 1024 {
+    if password_length > 1024 {
         return Err(ServerError::Validation(
             "password must be at most 1024 characters".to_string(),
         ));
     }
 
-    // Allow all printable Unicode characters (letters, digits, punctuation, symbols,
-    // spaces). Reject control characters (null bytes, newlines, tabs, etc.) which are
-    // not meaningful in passwords and can cause hashing or transport issues.
+    // Reject control characters (null bytes, newlines, tabs, etc.) which are not
+    // meaningful in passwords and can cause hashing or transport issues.
     if req.password.chars().any(|c| c.is_control()) {
         return Err(ServerError::Validation(
-            "password must contain only printable characters".to_string(),
+            "password must not contain control characters".to_string(),
         ));
     }
 
@@ -276,6 +277,15 @@ mod tests {
     #[test]
     fn password_too_short_is_rejected() {
         let req = make_req("user", "user@example.com", "short");
+        assert!(validate_registration(&req).is_err());
+    }
+
+    #[test]
+    fn password_length_is_counted_in_characters() {
+        let req = make_req("user", "user@example.com", "密码密码密码密码");
+        assert!(validate_registration(&req).is_ok());
+
+        let req = make_req("user", "user@example.com", &"密码".repeat(513));
         assert!(validate_registration(&req).is_err());
     }
 
