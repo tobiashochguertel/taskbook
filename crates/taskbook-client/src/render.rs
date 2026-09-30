@@ -387,6 +387,7 @@ impl Render {
         );
     }
 
+    #[allow(dead_code)]
     pub fn invalid_id(&self, id: u64) {
         eprintln!(
             "\n {} Unable to find item with id: {}",

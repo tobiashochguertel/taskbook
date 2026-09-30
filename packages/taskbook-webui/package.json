@@ -1,0 +1,45 @@
+{
+  "name": "taskbook-webui",
+  "version": "1.5.5",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.7",
+    "@playwright/test": "^1.58.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "@spaceymonk/react-radial-menu": "^2.1.0",
+    "@tailwindcss/vite": "^4.2.1",
+    "@tanstack/react-query": "^5.90.21",
+    "@tanstack/react-router": "^1.167.0",
+    "@types/react-grid-layout": "^2.1.0",
+    "cmdk": "^1.1.1",
+    "lucide-react": "^0.577.0",
+    "motion": "^12.36.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-grid-layout": "^2.2.2",
+    "tailwindcss": "^4.2.1",
+    "tinykeys": "^3.0.0"
+  }
+}

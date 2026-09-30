@@ -14,6 +14,8 @@ use crate::error::{Result, TaskbookError};
 pub enum Event {
     /// Keyboard input
     Key(KeyEvent),
+    /// Mouse input
+    Mouse(crossterm::event::MouseEvent),
     /// Terminal resize
     Resize(u16, u16),
     /// Periodic tick for UI updates
@@ -105,6 +107,11 @@ fn spawn_input_thread(sender: mpsc::Sender<Event>, tick_rate: u64) -> thread::Jo
             match event::read() {
                 Ok(event::Event::Key(key)) => {
                     if sender.send(Event::Key(key)).is_err() {
+                        break;
+                    }
+                }
+                Ok(event::Event::Mouse(mouse)) => {
+                    if sender.send(Event::Mouse(mouse)).is_err() {
                         break;
                     }
                 }

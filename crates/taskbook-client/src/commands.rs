@@ -8,9 +8,31 @@ use crate::config::Config;
 use crate::credentials::Credentials;
 use crate::directory::resolve_taskbook_directory;
 use crate::error::{Result, TaskbookError};
+use crate::render::Render;
 use crate::storage::{LocalStorage, StorageBackend};
-use crate::taskbook::Taskbook;
+use crate::taskbook::{EditorResult, Taskbook};
+use taskbook_common::board;
 use taskbook_common::encryption::encrypt_item;
+
+/// Parse a single @id target from CLI input. Returns (id, target_string).
+fn parse_single_id(input: &[String], render: &Render) -> Result<(u64, String)> {
+    let targets: Vec<&String> = input.iter().filter(|x| x.starts_with('@')).collect();
+
+    if targets.is_empty() {
+        render.missing_id();
+        return Err(TaskbookError::InvalidId(0));
+    }
+
+    if targets.len() > 1 {
+        render.invalid_ids_number();
+        return Err(TaskbookError::InvalidId(0));
+    }
+
+    let target = targets[0].clone();
+    let id_str = target.trim_start_matches('@');
+    let id: u64 = id_str.parse().map_err(|_| TaskbookError::InvalidId(0))?;
+    Ok((id, target))
+}
 
 /// Execute CLI commands
 #[allow(clippy::too_many_arguments)]
@@ -37,94 +59,240 @@ pub fn run(
     taskbook_dir: Option<PathBuf>,
 ) -> Result<()> {
     let taskbook = Taskbook::new(taskbook_dir.as_deref())?;
+    let config = Config::load_or_default();
+    let render = Render::new(config);
 
     if archive {
-        return taskbook.display_archive();
+        let data = taskbook.get_all_archive_items()?;
+        let grouped = taskbook.group_by_date(&data);
+        render.display_by_date(&grouped);
+        return Ok(());
     }
 
     if task {
-        return taskbook.create_task(&input);
+        if input.is_empty() {
+            render.missing_desc();
+            return Err(TaskbookError::InvalidId(0));
+        }
+        let (boards, description, priority, tags) = board::parse_cli_input(&input);
+        if description.is_empty() {
+            render.missing_desc();
+            return Err(TaskbookError::InvalidId(0));
+        }
+        let id = taskbook.create_task(boards, description, priority, tags)?;
+        render.success_create(id, true);
+        return Ok(());
     }
 
     if restore {
         let ids: Vec<u64> = input.iter().filter_map(|s| s.parse().ok()).collect();
-        return taskbook.restore_items(&ids);
+        let restored = taskbook.restore_items_silent(&ids)?;
+        render.success_restore(&restored);
+        return Ok(());
     }
 
     if note {
-        // If no description provided, open external editor
         if input.is_empty() {
-            return taskbook.create_note_with_editor();
+            match taskbook.create_note_with_editor()? {
+                EditorResult::Created(id) => render.success_create(id, false),
+                EditorResult::Cancelled => render.note_cancelled(),
+                EditorResult::Edited(_) => {}
+            }
+            return Ok(());
         }
-        return taskbook.create_note(&input);
+        let (boards, description, _priority, tags) = board::parse_cli_input(&input);
+        if description.is_empty() {
+            render.missing_desc();
+            return Err(TaskbookError::InvalidId(0));
+        }
+        let id = taskbook.create_note(boards, description, tags)?;
+        render.success_create(id, false);
+        return Ok(());
     }
 
     if edit_note {
-        return taskbook.edit_note_in_editor(&input);
+        let (id, _) = parse_single_id(&input, &render)?;
+        match taskbook.edit_note_in_editor(id)? {
+            EditorResult::Edited(id) => render.success_edit(id),
+            EditorResult::Cancelled => render.note_cancelled(),
+            EditorResult::Created(_) => {}
+        }
+        return Ok(());
     }
 
     if delete {
         let ids: Vec<u64> = input.iter().filter_map(|s| s.parse().ok()).collect();
-        return taskbook.delete_items(&ids);
+        let deleted = taskbook.delete_items_silent(&ids)?;
+        render.success_delete(&deleted);
+        return Ok(());
     }
 
     if check {
         let ids: Vec<u64> = input.iter().filter_map(|s| s.parse().ok()).collect();
-        return taskbook.check_tasks(&ids);
+        let result = taskbook.check_tasks(&ids)?;
+        render.mark_complete(&result.on);
+        render.mark_incomplete(&result.off);
+        return Ok(());
     }
 
     if begin {
         let ids: Vec<u64> = input.iter().filter_map(|s| s.parse().ok()).collect();
-        return taskbook.begin_tasks(&ids);
+        let result = taskbook.begin_tasks(&ids)?;
+        render.mark_started(&result.on);
+        render.mark_paused(&result.off);
+        return Ok(());
     }
 
     if star {
         let ids: Vec<u64> = input.iter().filter_map(|s| s.parse().ok()).collect();
-        return taskbook.star_items(&ids);
+        let result = taskbook.star_items(&ids)?;
+        render.mark_starred(&result.on);
+        render.mark_unstarred(&result.off);
+        return Ok(());
     }
 
     if priority {
-        return taskbook.update_priority(&input);
+        let level = input
+            .iter()
+            .find(|x| matches!(x.as_str(), "1" | "2" | "3"))
+            .and_then(|s| s.parse::<u8>().ok());
+
+        let level = match level {
+            Some(l) => l,
+            None => {
+                render.invalid_priority();
+                return Err(TaskbookError::InvalidId(0));
+            }
+        };
+
+        let (id, _) = parse_single_id(&input, &render)?;
+        taskbook.update_priority_silent(id, level)?;
+        render.success_priority(id, level);
+        return Ok(());
     }
 
     if copy {
         let ids: Vec<u64> = input.iter().filter_map(|s| s.parse().ok()).collect();
-        return taskbook.copy_to_clipboard(&ids);
+        let copied = taskbook.copy_to_clipboard(&ids)?;
+        render.success_copy_to_clipboard(&copied);
+        return Ok(());
     }
 
     if timeline {
-        taskbook.display_by_date()?;
-        return taskbook.display_stats();
+        let data = taskbook.get_all_items()?;
+        let grouped = taskbook.group_by_date(&data);
+        render.display_by_date(&grouped);
+        let stats = taskbook.get_stats(&data);
+        render.display_stats(&stats);
+        return Ok(());
     }
 
     if find {
-        return taskbook.find_items(&input);
+        let result = taskbook.find_items(&input)?;
+        let boards = taskbook.get_boards(&result);
+        let grouped = taskbook.group_by_board(&result, &boards);
+        render.display_by_board(&grouped);
+        return Ok(());
     }
 
     if list {
-        taskbook.list_by_attributes(&input)?;
-        return taskbook.display_stats();
+        let (filtered_data, display_boards) = taskbook.list_by_attributes(&input)?;
+        let grouped = taskbook.group_by_board(&filtered_data, &display_boards);
+        render.display_by_board(&grouped);
+        let stats = taskbook.get_stats(&filtered_data);
+        render.display_stats(&stats);
+        return Ok(());
     }
 
     if edit {
-        return taskbook.edit_description(&input);
+        let (id, target) = parse_single_id(&input, &render)?;
+        let new_desc: String = input
+            .iter()
+            .filter(|x| *x != &target)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        if new_desc.is_empty() {
+            render.missing_desc();
+            return Err(TaskbookError::InvalidId(0));
+        }
+
+        taskbook.edit_description_silent(id, &new_desc)?;
+        render.success_edit(id);
+        return Ok(());
     }
 
     if r#move {
-        return taskbook.move_boards(&input);
+        let (id, target) = parse_single_id(&input, &render)?;
+        let mut boards: Vec<String> = Vec::new();
+        for word in &input {
+            if *word != target {
+                let normalized = board::normalize_board_name(word);
+                if !boards.iter().any(|b| board::board_eq(b, &normalized)) {
+                    boards.push(normalized);
+                }
+            }
+        }
+
+        if boards.is_empty() {
+            render.missing_boards();
+            return Err(TaskbookError::InvalidId(0));
+        }
+
+        let display_boards: Vec<String> = boards.iter().map(|b| board::display_name(b)).collect();
+        taskbook.move_boards_silent(id, boards)?;
+        render.success_move(id, &display_boards);
+        return Ok(());
     }
 
     if clear {
-        return taskbook.clear();
+        let cleared = taskbook.clear_silent()?;
+        render.success_clear(&cleared);
+        return Ok(());
     }
 
     if tag {
-        return taskbook.update_tags(&input);
+        let (id, target) = parse_single_id(&input, &render)?;
+
+        let mut add_tags: Vec<String> = Vec::new();
+        let mut remove_tags: Vec<String> = Vec::new();
+
+        for word in &input {
+            if *word == target {
+                continue;
+            }
+            if let Some(tag_name) = word.strip_prefix('+') {
+                let normalized = board::normalize_tag(&format!("+{}", tag_name));
+                if !normalized.is_empty() {
+                    add_tags.push(normalized);
+                }
+            } else if let Some(tag_name) = word.strip_prefix('-') {
+                let normalized = tag_name.trim().to_lowercase();
+                if !normalized.is_empty() {
+                    remove_tags.push(normalized);
+                }
+            }
+        }
+
+        if add_tags.is_empty() && remove_tags.is_empty() {
+            render.missing_tags();
+            return Err(TaskbookError::General("No tags provided".to_string()));
+        }
+
+        taskbook.update_tags_silent(id, &add_tags, &remove_tags)?;
+        render.success_tag(id, &add_tags, &remove_tags);
+        return Ok(());
     }
 
     // Default: display board view and stats
-    taskbook.display_by_board()?;
-    taskbook.display_stats()
+    let data = taskbook.get_all_items()?;
+    let boards = taskbook.get_boards(&data);
+    let grouped = taskbook.group_by_board(&data, &boards);
+    render.display_by_board(&grouped);
+    let stats = taskbook.get_stats(&data);
+    render.display_stats(&stats);
+    Ok(())
 }
 
 /// Migrate local data to the remote server.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Project Overview
 
-Taskbook-rs is a Rust port of the Node.js [taskbook](https://github.com/klaussinani/taskbook) CLI application. It provides task and note management from the command line with board organization, priority levels, and timeline views. It supports both local file storage and remote server sync with client-side encryption.
+Taskbook-rs is a Rust port of the Node.js [taskbook](https://github.com/klaussinani/taskbook) CLI application, maintained as a fork at [tobiashochguertel/taskbook](https://github.com/tobiashochguertel/taskbook). It provides task and note management from the command line with board organization, priority levels, and timeline views. It supports both local file storage and remote server sync with client-side encryption, OIDC/SSO authentication, a React WebUI, and an MCP server for AI tool integration.
 
 ## Build & Development
 
@@ -188,23 +188,24 @@ docker run -p 8080:8080 \
 
 All under `/api/v1/` unless noted:
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | /health | No | Health check |
-| GET | /metrics | No | Prometheus metrics scrape endpoint |
-| POST | /register | No | Create account |
-| POST | /login | No | Get session token |
-| DELETE | /logout | Yes | Invalidate session |
-| GET | /me | Yes | Get user info |
-| GET | /items | Yes | Get encrypted items |
-| PUT | /items | Yes | Replace all items |
-| GET | /items/archive | Yes | Get encrypted archive |
-| PUT | /items/archive | Yes | Replace all archived items |
-| GET | /events | Yes | SSE stream for real-time sync notifications |
+| Method | Path           | Auth | Description                                 |
+| ------ | -------------- | ---- | ------------------------------------------- |
+| GET    | /health        | No   | Health check                                |
+| GET    | /metrics       | No   | Prometheus metrics scrape endpoint          |
+| POST   | /register      | No   | Create account                              |
+| POST   | /login         | No   | Get session token                           |
+| DELETE | /logout        | Yes  | Invalidate session                          |
+| GET    | /me            | Yes  | Get user info                               |
+| GET    | /items         | Yes  | Get encrypted items                         |
+| PUT    | /items         | Yes  | Replace all items                           |
+| GET    | /items/archive | Yes  | Get encrypted archive                       |
+| PUT    | /items/archive | Yes  | Replace all archived items                  |
+| GET    | /events        | Yes  | SSE stream for real-time sync notifications |
 
 ## Dependencies
 
 ### Client (taskbook-client)
+
 - `clap` - CLI argument parsing
 - `serde` / `serde_json` - JSON serialization
 - `colored` - Terminal colors
@@ -220,10 +221,12 @@ All under `/api/v1/` unless noted:
 - `fs2` - File locking for local storage
 
 ### Common (taskbook-common)
+
 - `aes-gcm` - AES-256-GCM encryption
 - `rand` - Cryptographic random number generation
 
 ### Server (taskbook-server)
+
 - `axum` - HTTP framework
 - `sqlx` - PostgreSQL async driver with migrations
 - `argon2` - Password hashing (Argon2id)

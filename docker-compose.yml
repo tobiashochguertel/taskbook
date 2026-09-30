@@ -46,6 +46,24 @@ services:
     stdin_open: true
     tty: true
 
+  mcp-server:
+    build:
+      context: .
+      dockerfile: packages/taskbook-mcp-server/Dockerfile
+    environment:
+      TB_MCP_TRANSPORT: "http"
+      TB_MCP_HOST: "0.0.0.0"
+      TB_MCP_PORT: "3100"
+      TB_SERVER_URL: "http://server:8080"
+      TB_TOKEN: "${TB_TOKEN:-}"
+      TB_ENCRYPTION_KEY: "${TB_ENCRYPTION_KEY:-}"
+    ports:
+      - "3100:3100"
+    depends_on:
+      - server
+    profiles:
+      - mcp
+
 volumes:
   postgres_data:
   client_data:

@@ -33,6 +33,11 @@ impl Credentials {
         Ok(Some(creds))
     }
 
+    /// Load credentials only if they match the given server URL.
+    pub fn for_server(server: &str) -> Result<Option<Self>> {
+        Ok(Self::load()?.filter(|c| c.server_url == server))
+    }
+
     /// Save credentials to disk with restrictive permissions (0600).
     pub fn save(&self) -> Result<()> {
         let path = Self::credentials_path()?;

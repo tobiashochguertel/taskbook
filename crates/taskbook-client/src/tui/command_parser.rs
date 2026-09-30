@@ -1,3 +1,5 @@
+use taskbook_common::board::normalize_tag;
+
 /// Parsed command from the command line input
 #[derive(Debug, Clone)]
 pub enum ParsedCommand {
@@ -55,6 +57,17 @@ pub enum ParsedCommand {
     Journal,
     Sort,
     HideDone,
+    Sync,
+    ForceSync,
+    Ping,
+    Server,
+    EncryptionKey {
+        sub: Option<String>,
+    },
+    Reset {
+        target: String,
+    },
+    Status,
     Help,
     Quit,
 }
@@ -112,6 +125,36 @@ pub fn parse_command(input: &str) -> Result<ParsedCommand, ParseError> {
         "journal" => Ok(ParsedCommand::Journal),
         "sort" => Ok(ParsedCommand::Sort),
         "hide-done" => Ok(ParsedCommand::HideDone),
+        "sync" | "refresh" => Ok(ParsedCommand::Sync),
+        "force-sync" => Ok(ParsedCommand::ForceSync),
+        "ping" => Ok(ParsedCommand::Ping),
+        "server" => Ok(ParsedCommand::Server),
+        "encryption-key" => {
+            let sub = if args.trim().is_empty() {
+                None
+            } else {
+                Some(args.trim().to_string())
+            };
+            Ok(ParsedCommand::EncryptionKey { sub })
+        }
+        "reset" => {
+            let target = args.trim().to_lowercase();
+            if target.is_empty() {
+                Err(ParseError {
+                    message: "Usage: /reset credentials|data|all".to_string(),
+                })
+            } else if !["credentials", "data", "all"].contains(&target.as_str()) {
+                Err(ParseError {
+                    message: format!(
+                        "Unknown reset target: '{}'. Use: credentials, data, or all",
+                        target
+                    ),
+                })
+            } else {
+                Ok(ParsedCommand::Reset { target })
+            }
+        }
+        "status" => Ok(ParsedCommand::Status),
         "help" => Ok(ParsedCommand::Help),
         "quit" | "q" => Ok(ParsedCommand::Quit),
         _ => Err(ParseError {
@@ -149,8 +192,8 @@ fn parse_task(args: &str) -> Result<ParsedCommand, ParseError> {
                 }
             }
         } else if token.starts_with('+') && token.len() > 1 {
-            let tag = token[1..].to_lowercase();
-            if !tags.iter().any(|t: &String| t.eq_ignore_ascii_case(&tag)) {
+            let tag = normalize_tag(token);
+            if !tag.is_empty() && !tags.iter().any(|t: &String| t.eq_ignore_ascii_case(&tag)) {
                 tags.push(tag);
             }
         } else {
@@ -195,8 +238,8 @@ fn parse_note(args: &str) -> Result<ParsedCommand, ParseError> {
 
     for token in rest.split_whitespace() {
         if token.starts_with('+') && token.len() > 1 {
-            let tag = token[1..].to_lowercase();
-            if !tags.iter().any(|t: &String| t.eq_ignore_ascii_case(&tag)) {
+            let tag = normalize_tag(token);
+            if !tag.is_empty() && !tags.iter().any(|t: &String| t.eq_ignore_ascii_case(&tag)) {
                 tags.push(tag);
             }
         } else {
@@ -417,12 +460,12 @@ fn parse_tag(args: &str) -> Result<ParsedCommand, ParseError> {
 
     for token in &tokens[1..] {
         if let Some(tag) = token.strip_prefix('+') {
-            let normalized = tag.trim().to_lowercase();
+            let normalized = normalize_tag(tag);
             if !normalized.is_empty() {
                 add.push(normalized);
             }
         } else if let Some(tag) = token.strip_prefix('-') {
-            let normalized = tag.trim().to_lowercase();
+            let normalized = normalize_tag(tag);
             if !normalized.is_empty() {
                 remove.push(normalized);
             }

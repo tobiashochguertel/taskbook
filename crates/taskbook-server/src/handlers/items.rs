@@ -5,23 +5,28 @@ use axum::Json;
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
+use crate::db::dal;
 use crate::error::{Result, ServerError};
 use crate::middleware::AuthUser;
 use crate::router::{AppState, SyncEvent};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, utoipa::ToSchema)]
 pub struct EncryptedItemData {
-    pub data: String,  // base64-encoded ciphertext
-    pub nonce: String, // base64-encoded nonce
+    /// Base64-encoded ciphertext
+    pub data: String,
+    /// Base64-encoded nonce
+    pub nonce: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 pub struct ItemsResponse {
+    /// Map of item key to encrypted data
     pub items: HashMap<String, EncryptedItemData>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 pub struct PutItemsRequest {
+    /// Map of item key to encrypted data
     pub items: HashMap<String, EncryptedItemData>,
 }
 
@@ -43,24 +48,42 @@ fn rows_to_encrypted_items(
         .collect()
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/items",
+    responses(
+        (status = 200, description = "Active items", body = ItemsResponse),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state))]
 pub async fn get_items(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<ItemsResponse>> {
-    let rows = sqlx::query_as::<_, (String, Vec<u8>, Vec<u8>)>(
-        "SELECT item_key, data, nonce FROM items WHERE user_id = $1 AND archived = false",
-    )
-    .bind(auth.user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(ServerError::Database)?;
+    let rows = dal::fetch_items(&state.pool, auth.user_id, false)
+        .await
+        .map_err(ServerError::Database)?;
 
     Ok(Json(ItemsResponse {
         items: rows_to_encrypted_items(rows),
     }))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/items",
+    request_body = PutItemsRequest,
+    responses(
+        (status = 200, description = "Items replaced"),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state, req), fields(item_count = req.items.len()))]
 pub async fn put_items(
     State(state): State<AppState>,
@@ -74,24 +97,42 @@ pub async fn put_items(
     Ok(())
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/items/archive",
+    responses(
+        (status = 200, description = "Archived items", body = ItemsResponse),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state))]
 pub async fn get_archive(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> Result<Json<ItemsResponse>> {
-    let rows = sqlx::query_as::<_, (String, Vec<u8>, Vec<u8>)>(
-        "SELECT item_key, data, nonce FROM items WHERE user_id = $1 AND archived = true",
-    )
-    .bind(auth.user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(ServerError::Database)?;
+    let rows = dal::fetch_items(&state.pool, auth.user_id, true)
+        .await
+        .map_err(ServerError::Database)?;
 
     Ok(Json(ItemsResponse {
         items: rows_to_encrypted_items(rows),
     }))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/items/archive",
+    request_body = PutItemsRequest,
+    responses(
+        (status = 200, description = "Archived items replaced"),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Authentication required"),
+    ),
+    security(("bearer" = [])),
+    tag = "items"
+)]
 #[tracing::instrument(skip(state, req), fields(item_count = req.items.len()))]
 pub async fn put_archive(
     State(state): State<AppState>,
@@ -109,6 +150,10 @@ pub async fn put_archive(
 const MAX_ITEMS_PER_CATEGORY: usize = 10_000;
 
 /// Replace all items for a user (active or archived) with the provided set.
+///
+/// Uses a PostgreSQL advisory lock per user to serialize concurrent replace
+/// operations, preventing duplicate-key violations from racing transactions.
+/// Items are upserted (INSERT ... ON CONFLICT DO UPDATE) for extra safety.
 async fn replace_items(
     pool: &sqlx::PgPool,
     user_id: uuid::Uuid,
@@ -122,51 +167,59 @@ async fn replace_items(
         )));
     }
 
-    // Validate individual item sizes
+    // Pre-decode and validate all items BEFORE starting the transaction
+    // to minimize time spent holding the advisory lock.
+    let mut decoded: Vec<(&str, Vec<u8>, Vec<u8>)> = Vec::with_capacity(items.len());
     for (key, item) in items {
         if key.len() > 64 {
             return Err(ServerError::Validation(
                 "item key must be at most 64 characters".to_string(),
             ));
         }
-        // Base64-decoded nonce should be 12 bytes (16 chars in base64)
         if item.nonce.len() > 24 {
             return Err(ServerError::Validation("invalid nonce size".to_string()));
         }
-        // Limit individual item data to 1 MB (base64-encoded)
         if item.data.len() > 1_400_000 {
             return Err(ServerError::Validation("item data too large".to_string()));
         }
-    }
-
-    let mut tx = pool.begin().await.map_err(ServerError::Database)?;
-
-    sqlx::query("DELETE FROM items WHERE user_id = $1 AND archived = $2")
-        .bind(user_id)
-        .bind(archived)
-        .execute(&mut *tx)
-        .await
-        .map_err(ServerError::Database)?;
-
-    for (key, item) in items {
         let data = base64::engine::general_purpose::STANDARD
             .decode(&item.data)
             .map_err(|e| ServerError::Validation(format!("invalid base64 data: {e}")))?;
         let nonce = base64::engine::general_purpose::STANDARD
             .decode(&item.nonce)
             .map_err(|e| ServerError::Validation(format!("invalid base64 nonce: {e}")))?;
+        decoded.push((key.as_str(), data, nonce));
+    }
 
-        sqlx::query(
-            "INSERT INTO items (user_id, item_key, data, nonce, archived) VALUES ($1, $2, $3, $4, $5)",
-        )
-        .bind(user_id)
-        .bind(key)
-        .bind(&data)
-        .bind(&nonce)
-        .bind(archived)
-        .execute(&mut *tx)
+    let mut tx = pool.begin().await.map_err(ServerError::Database)?;
+
+    // Acquire a per-user advisory lock (released automatically on commit/rollback).
+    // This serializes concurrent replace_items calls for the same user, preventing
+    // the race where two DELETEs see no rows then both try to INSERT the same keys.
+    let lock_key = user_id.as_u128() as i64;
+    dal::acquire_advisory_lock(&mut *tx, lock_key)
         .await
         .map_err(ServerError::Database)?;
+
+    // Collect the item_keys we're about to upsert
+    let new_keys: Vec<&str> = decoded.iter().map(|(k, _, _)| *k).collect();
+
+    // Delete items NOT in the new set (handles removals)
+    if new_keys.is_empty() {
+        dal::delete_category_items(&mut *tx, user_id, archived)
+            .await
+            .map_err(ServerError::Database)?;
+    } else {
+        dal::delete_items_not_in_set(&mut *tx, user_id, archived, &new_keys)
+            .await
+            .map_err(ServerError::Database)?;
+    }
+
+    // Upsert each item — handles both new and existing items without conflict.
+    for (key, data, nonce) in &decoded {
+        dal::upsert_item(&mut *tx, user_id, key, data, nonce, archived)
+            .await
+            .map_err(ServerError::Database)?;
     }
 
     tx.commit().await.map_err(ServerError::Database)?;

@@ -11,6 +11,9 @@ use crate::taskbook::Taskbook;
 use taskbook_common::board;
 use taskbook_common::StorageItem;
 
+const DEFAULT_CONTENT_HEIGHT: u16 = 20;
+const MAX_COMMAND_HISTORY: usize = 50;
+
 /// Sort items by the given method
 pub fn sort_items_by(items: &mut [&StorageItem], method: SortMethod) {
     match method {
@@ -91,6 +94,24 @@ pub struct App {
     pub history_index: Option<usize>,
     /// Saved input before browsing history
     pub history_saved_input: String,
+    /// Last mouse click time (for double-click detection)
+    pub last_click_time: Option<Instant>,
+    /// Dynamic sync operation state (idle/syncing/success/error/offline)
+    pub sync_state: SyncState,
+    /// Time of last successful sync
+    pub last_sync_time: Option<Instant>,
+}
+
+/// Tracks the current sync operation state for status bar display.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum SyncState {
+    #[default]
+    Idle,
+    Syncing,
+    Success,
+    Error,
+    Offline,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +171,7 @@ pub enum SuggestionKind {
 pub enum PendingAction {
     Delete { ids: Vec<u64> },
     Clear,
+    Reset { target: String },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -205,10 +227,13 @@ impl App {
             config,
             display_order: Vec::new(),
             needs_full_redraw: false,
-            content_height: 20,
+            content_height: DEFAULT_CONTENT_HEIGHT,
             command_history: Vec::new(),
             history_index: None,
             history_saved_input: String::new(),
+            last_click_time: None,
+            sync_state: SyncState::default(),
+            last_sync_time: None,
             cached_stats: Stats {
                 percent: 0,
                 complete: 0,
@@ -218,7 +243,18 @@ impl App {
             },
         };
 
-        app.refresh_items()?;
+        app.sync_state = SyncState::Syncing;
+        match app.refresh_items() {
+            Ok(()) => {
+                app.sync_state = SyncState::Success;
+                app.last_sync_time = Some(Instant::now());
+            }
+            Err(e) => {
+                app.sync_state = SyncState::Error;
+                // Log but don't fail startup — allow offline usage
+                eprintln!("Initial sync failed: {e}");
+            }
+        }
 
         // If restoring archive view, load archive items instead
         if initial_view == ViewMode::Archive {
@@ -404,6 +440,7 @@ impl App {
     pub fn cycle_sort_method(&mut self) {
         self.sort_method = self.sort_method.next();
         self.config.sort_method = self.sort_method;
+        // Best-effort: config persistence is non-critical
         let _ = self.config.save();
         self.update_display_order();
     }
@@ -412,6 +449,7 @@ impl App {
     pub fn toggle_hide_completed(&mut self) {
         self.filter.hide_completed = !self.filter.hide_completed;
         self.config.display_complete_tasks = !self.filter.hide_completed;
+        // Best-effort: config persistence is non-critical
         let _ = self.config.save();
         self.update_display_order();
         // Clamp selection
@@ -519,7 +557,7 @@ impl App {
             self.view = view;
             self.selected_index = 0;
 
-            // Persist the view choice
+            // Best-effort: config persistence is non-critical
             self.config.default_view = view;
             let _ = self.config.save();
 
@@ -560,8 +598,8 @@ impl App {
             if self.command_history.last().map(|s| s.as_str()) != Some(cmd.trim()) {
                 self.command_history.push(cmd.trim().to_string());
             }
-            // Cap history at 50 entries
-            if self.command_history.len() > 50 {
+            // Cap history
+            if self.command_history.len() > MAX_COMMAND_HISTORY {
                 self.command_history.remove(0);
             }
         }
