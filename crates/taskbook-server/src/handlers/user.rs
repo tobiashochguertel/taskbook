@@ -384,19 +384,119 @@ fn validate_registration(req: &RegisterRequest) -> Result<()> {
         ));
     }
 
-    if req.password.len() < constants::MIN_PASSWORD_LEN {
+    let password_length = req.password.chars().count();
+
+    if password_length < constants::MIN_PASSWORD_LEN {
         return Err(ServerError::Validation(format!(
             "password must be at least {} characters",
             constants::MIN_PASSWORD_LEN
         )));
     }
 
-    if req.password.len() > constants::MAX_PASSWORD_LEN {
+    if password_length > constants::MAX_PASSWORD_LEN {
         return Err(ServerError::Validation(format!(
             "password must be at most {} characters",
             constants::MAX_PASSWORD_LEN
         )));
     }
 
+    // Reject control characters (null bytes, newlines, tabs, etc.) which are not
+    // meaningful in passwords and can cause hashing or transport issues.
+    if req.password.chars().any(|c| c.is_control()) {
+        return Err(ServerError::Validation(
+            "password must not contain control characters".to_string(),
+        ));
+    }
+
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_req(username: &str, email: &str, password: &str) -> RegisterRequest {
+        RegisterRequest {
+            username: username.to_string(),
+            email: email.to_string(),
+            password: password.to_string(),
+        }
+    }
+
+    #[test]
+    fn password_with_special_chars_is_accepted() {
+        let passwords = [
+            "6S1%4Y#VB@LKKf3kanx%04J1",
+            "P@$$w0rd!",
+            "correcthorsebatterystaple",
+            "abc!@#$%^&*()_+-=[]{}|;':\",./<>?`~",
+            "密码abc123!@#",
+        ];
+        for pw in &passwords {
+            let req = make_req("user", "user@example.com", pw);
+            assert!(
+                validate_registration(&req).is_ok(),
+                "expected password to be accepted: {pw}"
+            );
+        }
+    }
+
+    #[test]
+    fn password_with_control_chars_is_rejected() {
+        let bad_passwords = [
+            "password\x00null",
+            "pass\nword",
+            "pass\tword",
+            "pass\x01soh",
+        ];
+        for pw in &bad_passwords {
+            let req = make_req("user", "user@example.com", pw);
+            assert!(
+                validate_registration(&req).is_err(),
+                "expected password with control char to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn password_too_short_is_rejected() {
+        let req = make_req("user", "user@example.com", "short");
+        assert!(validate_registration(&req).is_err());
+    }
+
+    #[test]
+    fn password_length_is_counted_in_characters() {
+        let req = make_req("user", "user@example.com", "密码密码密码密码");
+        assert!(validate_registration(&req).is_ok());
+
+        let req = make_req("user", "user@example.com", &"密码".repeat(513));
+        assert!(validate_registration(&req).is_err());
+    }
+
+    #[test]
+    fn valid_registration_passes() {
+        let req = make_req("valid_user", "user@example.com", "ValidPass1!");
+        assert!(validate_registration(&req).is_ok());
+    }
+
+    #[test]
+    fn username_with_dot_is_accepted() {
+        let usernames = ["tobias.hochguertel", "first.last", "user.name_123", "a.b.c"];
+        for u in &usernames {
+            let req = make_req(u, "user@example.com", "ValidPass1!");
+            assert!(
+                validate_registration(&req).is_ok(),
+                "expected username with dot to be accepted: {u}"
+            );
+        }
+    }
+
+    #[test]
+    fn username_with_at_sign_is_rejected() {
+        let req = make_req("user@example.com", "user@example.com", "ValidPass1!");
+        assert!(
+            validate_registration(&req).is_err(),
+            "@ in username should be rejected — use the email field for email addresses"
+        );
+    }
 }

@@ -302,12 +302,8 @@ impl App {
             }
         }
 
-        let total = complete + pending + in_progress;
-        let percent = if total == 0 {
-            0
-        } else {
-            (complete * 100 / total) as u32
-        };
+        let total: usize = complete + pending + in_progress;
+        let percent = (complete * 100).checked_div(total).unwrap_or(0) as u32;
 
         self.cached_stats = Stats {
             percent,
