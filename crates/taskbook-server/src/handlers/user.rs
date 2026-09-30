@@ -481,12 +481,7 @@ mod tests {
 
     #[test]
     fn username_with_dot_is_accepted() {
-        let usernames = [
-            "tobias.hochguertel",
-            "first.last",
-            "user.name_123",
-            "a.b.c",
-        ];
+        let usernames = ["tobias.hochguertel", "first.last", "user.name_123", "a.b.c"];
         for u in &usernames {
             let req = make_req(u, "user@example.com", "ValidPass1!");
             assert!(
