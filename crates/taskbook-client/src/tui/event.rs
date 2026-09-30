@@ -115,10 +115,10 @@ fn spawn_input_thread(sender: mpsc::Sender<Event>, tick_rate: u64) -> thread::Jo
                         break;
                     }
                 }
-                Ok(event::Event::Resize(width, height)) => {
-                    if sender.send(Event::Resize(width, height)).is_err() {
-                        break;
-                    }
+                Ok(event::Event::Resize(width, height))
+                    if sender.send(Event::Resize(width, height)).is_err() =>
+                {
+                    break;
                 }
                 _ => {}
             }
