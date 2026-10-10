@@ -4,6 +4,7 @@ use colored::{ColoredString, Colorize};
 
 use crate::config::{Config, Rgb, ThemeColors};
 use taskbook_common::board;
+use taskbook_common::due;
 use taskbook_common::StorageItem;
 
 /// Statistics about items
@@ -134,6 +135,24 @@ impl Render {
         }
     }
 
+    fn get_due(&self, item: &StorageItem) -> String {
+        let Some(task) = item.as_task() else {
+            return String::new();
+        };
+        if task.is_complete {
+            return String::new();
+        }
+        let Some(millis) = task.due_date else {
+            return String::new();
+        };
+        let text = format!("due:{}", due::format_due_date(millis));
+        match due::due_status(millis) {
+            due::DueStatus::Overdue => self.error(&text).to_string(),
+            due::DueStatus::DueToday => self.warning(&text).to_string(),
+            due::DueStatus::Upcoming => self.muted(&text).to_string(),
+        }
+    }
+
     fn get_star(&self, item: &StorageItem) -> String {
         if item.is_starred() {
             self.starred("★").to_string()
@@ -212,10 +231,14 @@ impl Render {
         let prefix = self.build_prefix(item);
         let message = self.build_message(item);
         let tags = self.color_tags(item.tags());
+        let due = self.get_due(item);
 
         let mut suffix_parts: Vec<String> = Vec::new();
         if !tags.is_empty() {
             suffix_parts.push(tags);
+        }
+        if !due.is_empty() {
+            suffix_parts.push(due);
         }
         if !age.is_empty() {
             suffix_parts.push(age);
@@ -241,10 +264,14 @@ impl Render {
         let message = self.build_message(item);
         let boards_str = self.color_boards(&boards);
         let tags = self.color_tags(item.tags());
+        let due = self.get_due(item);
 
         let mut suffix_parts: Vec<String> = Vec::new();
         if !tags.is_empty() {
             suffix_parts.push(tags);
+        }
+        if !due.is_empty() {
+            suffix_parts.push(due);
         }
         if !boards_str.is_empty() {
             suffix_parts.push(boards_str);
@@ -407,6 +434,13 @@ impl Render {
         eprintln!("\n {} Priority can only be 1, 2 or 3", self.error("✖"));
     }
 
+    pub fn invalid_due_date(&self) {
+        eprintln!(
+            "\n {} Invalid due date. Use YYYY-MM-DD, today, tomorrow or none",
+            self.error("✖")
+        );
+    }
+
     /// Format IDs as comma-separated string
     fn format_ids(&self, ids: &[u64]) -> String {
         ids.iter()
@@ -510,6 +544,22 @@ impl Render {
             self.muted(&id.to_string()),
             level_str
         );
+    }
+
+    pub fn success_due_date(&self, id: u64, due_date: Option<i64>) {
+        match due_date {
+            Some(millis) => println!(
+                "\n {} Set due date of task: {} to {}",
+                self.success("✔"),
+                self.muted(&id.to_string()),
+                self.muted(&due::format_due_date(millis))
+            ),
+            None => println!(
+                "\n {} Cleared due date of task: {}",
+                self.success("✔"),
+                self.muted(&id.to_string())
+            ),
+        }
     }
 
     pub fn success_restore(&self, ids: &[u64]) {

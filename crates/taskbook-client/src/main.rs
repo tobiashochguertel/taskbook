@@ -13,6 +13,7 @@ mod credentials;
 mod directory;
 mod editor;
 mod error;
+mod mcp;
 mod render;
 mod sso;
 mod storage;
@@ -123,6 +124,9 @@ enum Commands {
     /// Manage Personal Access Tokens
     Token(TokenArgs),
 
+    /// Run as MCP stdio server (for Claude Code and other agents)
+    Mcp,
+
     /// Sync operations
     Sync(SyncArgs),
 
@@ -192,6 +196,12 @@ enum TaskAction {
     /// Set task priority (1=normal, 2=medium, 3=high)
     Priority {
         /// @ID and priority level
+        #[arg(required = true, trailing_var_arg = true)]
+        input: Vec<String>,
+    },
+    /// Set or clear a task's due date (e.g. `@3 2026-07-01`, `@3 tomorrow+0930`, `@3 none`)
+    Due {
+        /// @ID and due date
         #[arg(required = true, trailing_var_arg = true)]
         input: Vec<String>,
     },
@@ -440,6 +450,13 @@ fn main() {
         Some(Commands::Auth(args)) => dispatch_auth(args),
         Some(Commands::Token(args)) => dispatch_token(args),
 
+        Some(Commands::Mcp) => {
+            if let Err(e) = mcp::run(taskbook_dir.as_deref()) {
+                eprintln!("MCP server error: {}", e);
+                process::exit(1);
+            }
+        }
+
         Some(Commands::Sync(args)) => match args.action {
             Some(SyncAction::Push) | None => {
                 run_or_exit(|| commands::migrate(taskbook_dir).map_err(|e| e.into()));
@@ -466,6 +483,7 @@ struct CmdFlags {
     begin: bool,
     star: bool,
     priority: bool,
+    due: bool,
     copy: bool,
     timeline: bool,
     find: bool,
@@ -496,6 +514,7 @@ fn cmd_run(
         flags.begin,
         flags.star,
         flags.priority,
+        flags.due,
         flags.copy,
         flags.timeline,
         flags.find,
@@ -540,6 +559,9 @@ fn dispatch_task(args: TaskArgs, taskbook_dir: Option<PathBuf>) {
         }
         Some(TaskAction::Priority { input }) => {
             cmd_run(input, taskbook_dir, |f| f.priority = true);
+        }
+        Some(TaskAction::Due { input }) => {
+            cmd_run(input, taskbook_dir, |f| f.due = true);
         }
         Some(TaskAction::Star { ids }) => {
             cmd_run(ids, taskbook_dir, |f| f.star = true);

@@ -4,7 +4,7 @@ use axum::extract::{ConnectInfo, State};
 use axum::Json;
 use base64::Engine;
 use chrono::{Duration, Utc};
-use rand::Rng;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -330,7 +330,7 @@ pub(crate) async fn create_session(
     expiry_days: i64,
 ) -> Result<String> {
     let mut token_bytes = [0u8; 32];
-    rand::thread_rng().fill(&mut token_bytes);
+    rand::rng().fill(&mut token_bytes);
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(token_bytes);
     let expires_at = Utc::now() + Duration::days(expiry_days);
 

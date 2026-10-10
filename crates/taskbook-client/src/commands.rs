@@ -47,6 +47,7 @@ pub fn run(
     begin: bool,
     star: bool,
     priority: bool,
+    due: bool,
     copy: bool,
     timeline: bool,
     find: bool,
@@ -169,6 +170,10 @@ pub fn run(
         taskbook.update_priority_silent(id, level)?;
         render.success_priority(id, level);
         return Ok(());
+    }
+
+    if due {
+        return taskbook.update_due_date(&input);
     }
 
     if copy {
@@ -355,7 +360,11 @@ pub fn migrate(taskbook_dir: Option<PathBuf>) -> Result<()> {
     );
     println!(
         "{}",
-        "To enable sync, set sync.enabled = true in ~/.taskbook.json".dimmed()
+        format!(
+            "To enable sync, set sync.enabled = true in {}",
+            crate::config::Config::config_file_path().display()
+        )
+        .dimmed()
     );
 
     Ok(())
