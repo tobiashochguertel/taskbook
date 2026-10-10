@@ -10,7 +10,6 @@ use crate::error::{Result, TaskbookError};
 use crate::render::Stats;
 use crate::storage::{LocalStorage, RemoteStorage, StorageBackend};
 use taskbook_common::board::{self, DEFAULT_BOARD};
-use taskbook_common::due;
 use taskbook_common::{Note, StorageItem, Task};
 
 /// Result of a toggle operation (check/begin/star).
@@ -48,10 +47,7 @@ impl Taskbook {
     /// Construct a Taskbook over an explicit storage backend (for tests).
     #[allow(dead_code)]
     pub fn with_storage(storage: Box<dyn StorageBackend>) -> Self {
-        Self {
-            storage,
-            render: Render::new(Config::default()),
-        }
+        Self { storage }
     }
 
     fn get_data(&self) -> Result<HashMap<String, StorageItem>> {
@@ -674,8 +670,9 @@ impl Taskbook {
         description: String,
         priority: u8,
         tags: Vec<String>,
+        due_date: Option<i64>,
     ) -> Result<u64> {
-        self.create_task_direct_with_tags(boards, description, priority, tags)
+        self.create_task_direct_with_tags(boards, description, priority, tags, due_date)
     }
 
     /// Check/uncheck tasks, returning which were toggled on/off.
@@ -828,52 +825,58 @@ impl Taskbook {
         Ok((filtered_data, display_boards))
     }
 
-    pub fn update_due_date(&self, input: &[String]) -> Result<()> {
-        let targets: Vec<&String> = input.iter().filter(|x| x.starts_with('@')).collect();
+    /// Set a task's state deterministically without CLI output (for MCP)
+    pub fn set_task_state_silent(&self, id: u64, state: &str) -> Result<()> {
+        let mut data = self.get_data()?;
+        let existing_ids = self.get_ids(&data);
+        self.validate_ids(&[id], &existing_ids)?;
 
-        if targets.is_empty() {
-            self.render.missing_id();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        if targets.len() > 1 {
-            self.render.invalid_ids_number();
-            return Err(TaskbookError::InvalidId(0));
-        }
-
-        let target = targets[0];
-        let id: u64 = target
-            .trim_start_matches('@')
-            .parse()
-            .map_err(|_| TaskbookError::InvalidId(0))?;
-
-        let value = input.iter().find(|x| *x != target);
-        let due_date = match value.map(|s| s.as_str()) {
-            Some("none") => None,
-            Some(raw) => match due::parse_due_date(raw) {
-                Some(millis) => Some(millis),
-                None => {
-                    self.render.invalid_due_date();
-                    return Err(TaskbookError::General(format!("invalid due date: {raw}")));
+        if let Some(item) = data.get_mut(&id.to_string()) {
+            let task = item
+                .as_task_mut()
+                .ok_or_else(|| TaskbookError::General(format!("item {id} is not a task")))?;
+            match state {
+                "done" => {
+                    task.is_complete = true;
+                    task.in_progress = false;
                 }
-            },
-            None => {
-                self.render.invalid_due_date();
-                return Err(TaskbookError::General("missing due date".to_string()));
+                "in_progress" => {
+                    task.is_complete = false;
+                    task.in_progress = true;
+                }
+                "pending" => {
+                    task.is_complete = false;
+                    task.in_progress = false;
+                }
+                other => {
+                    return Err(TaskbookError::General(format!(
+                        "invalid state '{other}' (use pending, in_progress or done)"
+                    )))
+                }
             }
-        };
+        }
 
-        self.set_due_date_silent(id, due_date)?;
-        self.render.success_due_date(id, due_date);
-        Ok(())
+        self.save(&data)
     }
 
-    /// Set a task's state deterministically without CLI output (for MCP)
+    /// Set starred flag explicitly without CLI output (for MCP)
+    pub fn set_starred_silent(&self, id: u64, starred: bool) -> Result<()> {
+        let mut data = self.get_data()?;
+        let existing_ids = self.get_ids(&data);
+        self.validate_ids(&[id], &existing_ids)?;
 
+        if let Some(item) = data.get_mut(&id.to_string()) {
+            item.set_starred(starred);
+        }
+
+        self.save(&data)
+    }
+
+    /// Set or clear a task due date without CLI output (for TUI/MCP)
     pub fn set_due_date_silent(&self, id: u64, due_date: Option<i64>) -> Result<()> {
         let mut data = self.get_data()?;
         let existing_ids = self.get_ids(&data);
-        self.validate_ids_silent(&[id], &existing_ids)?;
+        self.validate_ids(&[id], &existing_ids)?;
 
         if let Some(item) = data.get_mut(&id.to_string()) {
             let task = item

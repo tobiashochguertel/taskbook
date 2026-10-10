@@ -12,7 +12,16 @@ use crate::render::Render;
 use crate::storage::{LocalStorage, StorageBackend};
 use crate::taskbook::{EditorResult, Taskbook};
 use taskbook_common::board;
+use taskbook_common::due;
 use taskbook_common::encryption::encrypt_item;
+
+/// Parse task/note CLI input, rendering an error for an invalid `due:` token.
+fn parse_input(input: &[String], render: &Render) -> Result<board::ParsedInput> {
+    board::parse_cli_input(input).map_err(|board::CliParseError::InvalidDueDate(raw)| {
+        render.invalid_due_date();
+        TaskbookError::General(format!("invalid due date: {raw}"))
+    })
+}
 
 /// Parse a single @id target from CLI input. Returns (id, target_string).
 fn parse_single_id(input: &[String], render: &Render) -> Result<(u64, String)> {
@@ -75,12 +84,18 @@ pub fn run(
             render.missing_desc();
             return Err(TaskbookError::InvalidId(0));
         }
-        let (boards, description, priority, tags) = board::parse_cli_input(&input);
+        let board::ParsedInput {
+            boards,
+            description,
+            priority,
+            tags,
+            due_date,
+        } = parse_input(&input, &render)?;
         if description.is_empty() {
             render.missing_desc();
             return Err(TaskbookError::InvalidId(0));
         }
-        let id = taskbook.create_task(boards, description, priority, tags)?;
+        let id = taskbook.create_task(boards, description, priority, tags, due_date)?;
         render.success_create(id, true);
         return Ok(());
     }
@@ -101,7 +116,12 @@ pub fn run(
             }
             return Ok(());
         }
-        let (boards, description, _priority, tags) = board::parse_cli_input(&input);
+        let board::ParsedInput {
+            boards,
+            description,
+            tags,
+            ..
+        } = parse_input(&input, &render)?;
         if description.is_empty() {
             render.missing_desc();
             return Err(TaskbookError::InvalidId(0));
@@ -173,7 +193,24 @@ pub fn run(
     }
 
     if due {
-        return taskbook.update_due_date(&input);
+        let (id, target) = parse_single_id(&input, &render)?;
+        let due_date = match input.iter().find(|x| **x != target).map(|s| s.as_str()) {
+            Some("none") => None,
+            Some(raw) => match due::parse_due_date(raw) {
+                Some(millis) => Some(millis),
+                None => {
+                    render.invalid_due_date();
+                    return Err(TaskbookError::General(format!("invalid due date: {raw}")));
+                }
+            },
+            None => {
+                render.invalid_due_date();
+                return Err(TaskbookError::General("missing due date".to_string()));
+            }
+        };
+        taskbook.set_due_date_silent(id, due_date)?;
+        render.success_due_date(id, due_date);
+        return Ok(());
     }
 
     if copy {
