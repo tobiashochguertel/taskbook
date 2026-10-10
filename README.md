@@ -218,7 +218,7 @@ See the [MCP server README](packages/taskbook-mcp-server/README.md) for AI tool 
 
 ## Configuration
 
-Configuration is stored in `~/.taskbook.json`:
+Configuration is stored in `~/.config/taskbook/taskbook.json` (honoring `$XDG_CONFIG_HOME`; a legacy `~/.taskbook.json` is still used if present):
 
 ```json
 {

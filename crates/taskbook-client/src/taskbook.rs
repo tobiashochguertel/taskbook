@@ -44,6 +44,12 @@ impl Taskbook {
         Ok(Self { storage })
     }
 
+    /// Construct a Taskbook over an explicit storage backend (for tests).
+    #[allow(dead_code)]
+    pub fn with_storage(storage: Box<dyn StorageBackend>) -> Self {
+        Self { storage }
+    }
+
     fn get_data(&self) -> Result<HashMap<String, StorageItem>> {
         self.storage.get()
     }
@@ -138,8 +144,8 @@ impl Taskbook {
             }
         }
 
-        let total: usize = complete + pending + in_progress;
-        let percent = (complete * 100).checked_div(total).unwrap_or(0) as u32;
+        let total = complete + pending + in_progress;
+        let percent = (complete * 100usize).checked_div(total).unwrap_or(0) as u32;
 
         Stats {
             percent,
@@ -308,16 +314,17 @@ impl Taskbook {
         description: String,
         priority: u8,
     ) -> Result<u64> {
-        self.create_task_direct_with_tags(boards, description, priority, Vec::new())
+        self.create_task_direct_with_tags(boards, description, priority, Vec::new(), None)
     }
 
-    /// Create a task with tags (for TUI)
+    /// Create a task with tags and optional due date (for TUI/MCP)
     pub fn create_task_direct_with_tags(
         &self,
         boards: Vec<String>,
         description: String,
         priority: u8,
         tags: Vec<String>,
+        due_date: Option<i64>,
     ) -> Result<u64> {
         if description.is_empty() {
             return Err(TaskbookError::General("Description cannot be empty".into()));
@@ -325,7 +332,8 @@ impl Taskbook {
 
         let mut data = self.get_data()?;
         let id = self.generate_id(&data);
-        let task = Task::new_with_tags(id, description, boards, priority, tags);
+        let task =
+            Task::new_with_tags(id, description, boards, priority, tags).with_due_date(due_date);
         data.insert(id.to_string(), StorageItem::Task(task));
         self.save(&data)?;
         Ok(id)
@@ -662,8 +670,9 @@ impl Taskbook {
         description: String,
         priority: u8,
         tags: Vec<String>,
+        due_date: Option<i64>,
     ) -> Result<u64> {
-        self.create_task_direct_with_tags(boards, description, priority, tags)
+        self.create_task_direct_with_tags(boards, description, priority, tags, due_date)
     }
 
     /// Check/uncheck tasks, returning which were toggled on/off.
@@ -814,6 +823,69 @@ impl Taskbook {
         };
 
         Ok((filtered_data, display_boards))
+    }
+
+    /// Set a task's state deterministically without CLI output (for MCP)
+    pub fn set_task_state_silent(&self, id: u64, state: &str) -> Result<()> {
+        let mut data = self.get_data()?;
+        let existing_ids = self.get_ids(&data);
+        self.validate_ids(&[id], &existing_ids)?;
+
+        if let Some(item) = data.get_mut(&id.to_string()) {
+            let task = item
+                .as_task_mut()
+                .ok_or_else(|| TaskbookError::General(format!("item {id} is not a task")))?;
+            match state {
+                "done" => {
+                    task.is_complete = true;
+                    task.in_progress = false;
+                }
+                "in_progress" => {
+                    task.is_complete = false;
+                    task.in_progress = true;
+                }
+                "pending" => {
+                    task.is_complete = false;
+                    task.in_progress = false;
+                }
+                other => {
+                    return Err(TaskbookError::General(format!(
+                        "invalid state '{other}' (use pending, in_progress or done)"
+                    )))
+                }
+            }
+        }
+
+        self.save(&data)
+    }
+
+    /// Set starred flag explicitly without CLI output (for MCP)
+    pub fn set_starred_silent(&self, id: u64, starred: bool) -> Result<()> {
+        let mut data = self.get_data()?;
+        let existing_ids = self.get_ids(&data);
+        self.validate_ids(&[id], &existing_ids)?;
+
+        if let Some(item) = data.get_mut(&id.to_string()) {
+            item.set_starred(starred);
+        }
+
+        self.save(&data)
+    }
+
+    /// Set or clear a task due date without CLI output (for TUI/MCP)
+    pub fn set_due_date_silent(&self, id: u64, due_date: Option<i64>) -> Result<()> {
+        let mut data = self.get_data()?;
+        let existing_ids = self.get_ids(&data);
+        self.validate_ids(&[id], &existing_ids)?;
+
+        if let Some(item) = data.get_mut(&id.to_string()) {
+            let task = item
+                .as_task_mut()
+                .ok_or_else(|| TaskbookError::General(format!("item {id} is not a task")))?;
+            task.due_date = due_date;
+        }
+
+        self.save(&data)
     }
 
     /// Update tags (for TUI and CLI)

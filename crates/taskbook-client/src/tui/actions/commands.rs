@@ -14,6 +14,7 @@ pub(super) fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
             description,
             priority,
             tags,
+            due_date,
         } => {
             let board_name = resolve_board(board, app);
             app.taskbook.create_task_direct_with_tags(
@@ -21,6 +22,7 @@ pub(super) fn execute_command(app: &mut App, cmd: ParsedCommand) -> Result<()> {
                 description,
                 priority,
                 tags,
+                due_date,
             )?;
             app.refresh_items()?;
             let display = board::display_name(&board_name);

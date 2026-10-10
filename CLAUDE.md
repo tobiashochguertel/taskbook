@@ -47,7 +47,8 @@ crates/
 │   └── src/
 │       ├── lib.rs          # Module exports
 │       ├── api.rs          # Shared API request/response types
-│       ├── board.rs        # Board name handling, normalization
+│       ├── board.rs        # Board name handling, normalization, CLI input parsing
+│       ├── due.rs          # Due-date parsing/formatting/status (epoch millis)
 │       ├── encryption.rs   # AES-256-GCM encrypt/decrypt
 │       ├── error.rs        # CommonError type
 │       └── models/         # StorageItem, Task, Note, Item trait
@@ -60,11 +61,14 @@ crates/
 │       ├── api_client.rs   # HTTP client for server communication
 │       ├── auth.rs         # Register, login, logout, status commands
 │       ├── credentials.rs  # Encryption key and token management
-│       ├── config.rs       # ~/.taskbook.json configuration (with sync section)
+│       ├── config.rs       # config file (XDG path, with sync section)
 │       ├── directory.rs    # Taskbook directory resolution
 │       ├── render.rs       # Terminal output with colored formatting
 │       ├── editor.rs       # External editor support for notes
 │       ├── error.rs        # Error types using thiserror
+│       ├── mcp/
+│       │   ├── mod.rs      # MCP stdio server (JSON-RPC 2.0 loop)
+│       │   └── tools.rs    # MCP tool schemas + dispatch into Taskbook
 │       ├── storage/
 │       │   ├── mod.rs      # StorageBackend trait
 │       │   ├── local.rs    # LocalStorage (file-based)
@@ -106,8 +110,12 @@ crates/
 5. **Directory Resolution Priority**:
    - `--taskbook-dir` CLI flag (highest)
    - `TASKBOOK_DIR` environment variable
-   - `~/.taskbook.json` config file
+   - config file (lowest)
    - Default `~/.taskbook/` (lowest)
+
+   The config file is resolved as `~/.config/taskbook/taskbook.json`
+   (honoring `$XDG_CONFIG_HOME`), falling back to the legacy
+   `~/.taskbook.json` when it exists and the XDG file does not.
 
 6. **Storage Structure (Local)**:
    ```
@@ -126,6 +134,8 @@ tb                          # Display board view (TUI)
 tb --task "Description"     # Create task
 tb --task @board "Desc"     # Create task in specific board
 tb --task "Desc" p:2        # Create with priority (1=normal, 2=medium, 3=high)
+tb --task "Desc" due:2026-07-01  # Create with due date (also due:today, due:tomorrow)
+tb --task "Desc" due:tomorrow+0930  # Due with time via token: today/tomorrow/now+HHMM or YYYY-MM-DDTHH:MM (no spaces)
 tb --note "Description"     # Create note
 tb --note                   # Create note in external editor ($EDITOR)
 tb --check <id> [id...]     # Toggle task complete
@@ -137,6 +147,7 @@ tb --edit @<id> "New desc"  # Edit description
 tb --edit-note @<id>        # Edit note in external editor ($EDITOR)
 tb --move @<id> board       # Move to board
 tb --priority @<id> <1-3>   # Set priority
+tb --due @<id> <date>       # Set due date (YYYY-MM-DD[ HH:MM], today, tomorrow, now, *+HHMM) or none to clear
 tb --find <term>            # Search items
 tb --list <attributes>      # Filter (pending, done, task, note, starred)
 tb --timeline               # Chronological view
@@ -153,7 +164,28 @@ tb --migrate                # Push local data to server
 
 # Mode
 tb --cli                    # Force non-interactive CLI mode
+tb --mcp                    # Run as MCP stdio server
 ```
+
+## MCP Server
+
+`tb --mcp` runs a Model Context Protocol server over stdio (newline-delimited
+JSON-RPC 2.0, no extra dependencies). It uses the configured storage backend:
+the remote server storage (with client-side encryption) when `sync.enabled =
+true` in the config file (`~/.config/taskbook/taskbook.json`), local files
+otherwise.
+
+Register it in Claude Code:
+
+```bash
+claude mcp add taskbook -- tb --mcp
+```
+
+Exposed tools: `list_items` (filters: state/type, board, tag, text query,
+archived), `list_boards`, `create_task` (with priority, tags, due date),
+`create_note`, `set_task_state` (pending/in_progress/done — deterministic, not
+a toggle), `edit_item` (partial update incl. due date and starred),
+`delete_items`, `restore_items`. Implementation: `crates/taskbook-client/src/mcp/`.
 
 ## Server Configuration
 
