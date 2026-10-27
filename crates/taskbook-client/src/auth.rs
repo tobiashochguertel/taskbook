@@ -25,6 +25,12 @@ fn prompt_password(message: &str) -> Result<String> {
         .map_err(|e| TaskbookError::General(format!("failed to read password: {e}")))
 }
 
+/// Compare two server URLs using the same trailing-slash normalization as
+/// `ApiClient::new`.
+fn same_server_url(a: &str, b: &str) -> bool {
+    a.trim_end_matches('/') == b.trim_end_matches('/')
+}
+
 /// Resolve the server URL for auth commands: an explicit `--server` value
 /// wins; otherwise fall back to the configured sync server when sync is
 /// already enabled.
@@ -214,7 +220,7 @@ pub fn status() -> Result<()> {
             println!("Server URL:  {}", creds.server_url);
 
             if config.sync.enabled {
-                if creds.server_url != config.sync.server_url {
+                if !same_server_url(&creds.server_url, &config.sync.server_url) {
                     println!(
                         "{}",
                         format!(
@@ -223,6 +229,15 @@ pub fn status() -> Result<()> {
                         )
                         .yellow()
                     );
+                    // A bearer token issued by one server must not be sent
+                    // to another; skip validation and require re-auth.
+                    println!("Session:     {}", "not checked".yellow());
+                    println!(
+                        "{}",
+                        "Hint: run `tb --login` to authenticate against the configured server."
+                            .dimmed()
+                    );
+                    return Ok(());
                 }
                 // Validate the session against the configured server (user's
                 // intent), not a potentially stale credentials URL.
@@ -281,5 +296,12 @@ mod tests {
     fn no_fallback_when_sync_disabled() {
         let config = config_with_sync(false, "http://configured.example");
         assert_eq!(configured_server_url(None, &config), None);
+    }
+
+    #[test]
+    fn same_server_url_ignores_trailing_slash() {
+        assert!(same_server_url("http://a.example", "http://a.example/"));
+        assert!(same_server_url("http://a.example/", "http://a.example"));
+        assert!(!same_server_url("http://a.example", "http://b.example"));
     }
 }
